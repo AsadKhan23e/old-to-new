@@ -1038,22 +1038,35 @@ export default function ItemsPage() {
               <FileText className="w-3 h-3" /> Recent Bills
             </p>
             <div className="flex flex-wrap gap-2">
-              {transactions
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                .slice(0, 5)
-                .map((tx, i) => (
-                  <Button
-                    key={tx.id}
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-3 text-xs bg-red-50 text-red-600 border-red-200 hover:bg-red-100 rounded-full font-bold"
-                    onClick={() => setShowBillPreview(tx)}
-                  >
-                    {i + 1}
-                  </Button>
-                ))
-              }
-              {transactions.length === 0 && <p className="text-sm text-muted-foreground italic">No recent transactions.</p>}
+              {(() => {
+                const customerSales = transactions
+                  .filter(tx => tx.type !== 'purchase' && tx.type !== 'debit')
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                  .slice(0, 10);
+
+                return customerSales.slice(0, 5).map((tx, i) => {
+                  const customerTxs = transactions
+                    .filter(ctx => ctx.customerId === tx.customerId && ctx.type !== 'purchase' && ctx.type !== 'debit')
+                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+                  const billNumber = customerTxs.findIndex(ctx => ctx.id === tx.id) + 1;
+
+                  return (
+                    <Button
+                      key={tx.id}
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-3 text-xs bg-red-50 text-red-600 border-red-200 hover:bg-red-100 rounded-full font-bold"
+                      onClick={() => setShowBillPreview({ ...tx, billNumber })}
+                    >
+                      {i + 1}
+                    </Button>
+                  );
+                });
+              })()}
+              {transactions.filter(tx => tx.type !== 'purchase' && tx.type !== 'debit').length === 0 && (
+                <p className="text-sm text-muted-foreground italic">No recent transactions.</p>
+              )}
             </div>
           </div>
 
