@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'king.khan648k@gmail.com';
+    }
+
+    // ── Users ────────────────────────────────────────────────────────
+    // Allow admin to list/manage all users
+    match /users {
+      allow read, write: if isAdmin();
+    }
+
+    match /users/{userEmail} {
+      // Allow access if the auth email matches the document ID (case-insensitive) or if the user is an admin
+      allow read, write: if (request.auth != null && 
+        (request.auth.token.email == userEmail || 
+         request.auth.token.email.lower() == userEmail.lower())) || isAdmin();
+      
+      // Allow access to all subcollections (customers, transactions, etc.)
+      match /{allPaths=**} {
+        allow read, write: if (request.auth != null && 
+          (request.auth.token.email == userEmail || 
+           request.auth.token.email.lower() == userEmail.lower())) || isAdmin();
+      }
+    }
+
+    // ── appConfig ────────────────────────────────────────────────────
+    match /appConfig/{docId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // ── Premium Requests ──────────────────────────────────────────────
+    match /premiumRequests {
+      allow read, list: if isAdmin();
+    }
+    
+    match /premiumRequests/{reqId} {
+      allow create: if request.auth != null && request.resource.data.userEmail == request.auth.token.email;
+      allow read: if request.auth != null && (request.auth.token.email == resource.data.userEmail || isAdmin());
+      allow write: if isAdmin();
+    }
+  }
+}
+
