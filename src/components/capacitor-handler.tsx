@@ -18,10 +18,35 @@ export function CapacitorHandler() {
     if (!Capacitor.isNativePlatform()) return;
 
     // Handle Back Button
-    const backButtonListener = App.addListener('backButton', () => {
-      if (pathname === '/dashboard' || pathname === '/login') {
+    const backButtonHandler = App.addListener('backButton', () => {
+      // Check for open dialogs/modals
+      const openDialog = document.querySelector('[role="dialog"][data-state="open"]');
+      const closeButton = document.querySelector('button[aria-label="Close"]');
+
+      if (openDialog || closeButton) {
+        // If there's a close button, click it
+        if (closeButton instanceof HTMLButtonElement) {
+          closeButton.click();
+          return;
+        }
+        // Otherwise, send Escape key event to close the modal
+        const escEvent = new KeyboardEvent('keydown', {
+          key: 'Escape',
+          code: 'Escape',
+          keyCode: 27,
+          which: 27,
+          bubbles: true,
+          cancelable: true
+        });
+        document.dispatchEvent(escEvent);
+        return;
+      }
+
+      // Special case for root paths
+      if (pathname === '/dashboard' || pathname === '/login' || pathname === '/') {
         App.exitApp();
       } else {
+        // Normal navigation back
         window.history.back();
       }
     });
@@ -38,7 +63,7 @@ export function CapacitorHandler() {
     SplashScreen.hide();
 
     return () => {
-      backButtonListener.remove();
+      backButtonHandler.then(h => h.remove());
       Keyboard.removeAllListeners();
     };
   }, [pathname, router]);
@@ -46,7 +71,7 @@ export function CapacitorHandler() {
   // Update Status Bar
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
-    
+
     if (theme === 'dark') {
       StatusBar.setStyle({ style: Style.Dark });
       StatusBar.setBackgroundColor({ color: '#121212' });
