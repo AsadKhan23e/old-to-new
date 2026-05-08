@@ -5,6 +5,8 @@ import '../../models/app_models.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
+import '../../logic/providers/auth_provider.dart';
+
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
@@ -32,7 +34,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
     _addressCtrl = TextEditingController(text: settings?.address ?? '');
     _footerCtrl = TextEditingController(text: settings?.footer ?? '');
-    if (settings?.logo != null && settings!.logo.isNotEmpty) {
+    if (settings?.logo != null &&
+        settings!.logo.isNotEmpty &&
+        !settings.logo.startsWith('http')) {
       _logo = File(settings.logo);
     }
   }
@@ -61,10 +65,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       footer: _footerCtrl.text,
     );
 
-    final updatedSettings = AppSettings(
-      language: currentSettings.language,
-      viewMode: currentSettings.viewMode,
-      theme: currentSettings.theme,
+    final updatedSettings = currentSettings.copyWith(
       billDesign: updatedBillSettings,
     );
 
@@ -78,12 +79,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentSettings = ref.watch(appDataProvider).value?.settings;
+    if (currentSettings == null)
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+
     return Scaffold(
       backgroundColor: const Color(0xFFFAF8F3),
       appBar: AppBar(
         title: const Text(
           'Store Settings & Profile',
-          style: TextStyle( fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: const Color(0xFFFAF8F3),
         actions: [
@@ -127,11 +132,66 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   lines: 2,
                 ),
                 const SizedBox(height: 16),
+                const SizedBox(height: 16),
                 _buildTextField(
                   _footerCtrl,
                   'Custom Bill Footer Message',
                   Icons.message_outlined,
                   lines: 2,
+                ),
+                const SizedBox(height: 24),
+
+                _buildDropdownSetting<String>(
+                  'App Language',
+                  Icons.language,
+                  currentSettings.language,
+                  ['en', 'ur', 'hi'],
+                  (val) {
+                    if (val != null) {
+                      ref
+                          .read(appDataProvider.notifier)
+                          .updateSettings(
+                            currentSettings.copyWith(language: val),
+                          );
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                _buildDropdownSetting<String>(
+                  'Theme Mode',
+                  Icons.brightness_medium,
+                  currentSettings.theme,
+                  ['system', 'light', 'dark'],
+                  (val) {
+                    if (val != null) {
+                      ref
+                          .read(appDataProvider.notifier)
+                          .updateSettings(currentSettings.copyWith(theme: val));
+                    }
+                  },
+                ),
+
+                const SizedBox(height: 48),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      ref.read(authServiceProvider).signOut();
+                      Navigator.of(context).popUntil((route) => route.isFirst);
+                    },
+                    icon: const Icon(Icons.logout, color: Colors.red),
+                    label: const Text(
+                      'Logout Account',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      side: const BorderSide(color: Colors.red),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 40),
                 const Text(
@@ -141,6 +201,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDropdownSetting<T>(
+    String label,
+    IconData icon,
+    T current,
+    List<T> items,
+    Function(T?) onChanged,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFCFCAC0)),
+      ),
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(icon, color: const Color(0xFF8C6A4F)),
+        title: Text(label, style: const TextStyle(fontSize: 14)),
+        trailing: DropdownButton<T>(
+          value: current,
+          items: items
+              .map(
+                (i) => DropdownMenuItem(
+                  value: i,
+                  child: Text(i.toString().toUpperCase()),
+                ),
+              )
+              .toList(),
+          onChanged: onChanged,
+          underline: const SizedBox(),
         ),
       ),
     );

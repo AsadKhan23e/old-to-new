@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../logic/providers/app_data_provider.dart';
 import '../../models/app_models.dart';
 import 'create_sale_screen.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import '../../core/services/pdf_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:io';
 
 class ItemsScreen extends ConsumerWidget {
@@ -24,7 +28,7 @@ class ItemsScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(context, ref),
-            _buildRecentBills(),
+            _buildRecentBills(ref, appData),
             _buildItemsList(context, ref, items),
           ],
         ),
@@ -155,60 +159,314 @@ class ItemsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildRecentBills() {
+  Widget _buildRecentBills(WidgetRef ref, AppData appData) {
+    final transactions = appData.transactions;
+    // Filter only customer sales (no purchases, no direct debits)
+    final recentSales =
+        transactions
+            .where((tx) => tx.type != 'purchase' && tx.type != 'debit')
+            .toList()
+          ..sort((a, b) => b.date.compareTo(a.date));
+
+    final displaySales = recentSales.take(5).toList();
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: const Color(0xFFCFCAC0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: const [
-              Icon(Icons.description_outlined, size: 16, color: Colors.grey),
-              SizedBox(width: 8),
+            children: [
+              const Icon(
+                Icons.description_outlined,
+                size: 14,
+                color: Colors.grey,
+              ),
+              const SizedBox(width: 8),
               Text(
                 'RECENT BILLS',
-                style: TextStyle(
-                  color: Color(0xFF64748B),
+                style: GoogleFonts.outfit(
+                  color: const Color(0xFF64748B),
                   fontWeight: FontWeight.bold,
-                  fontSize: 12,
+                  fontSize: 11,
+                  letterSpacing: 0.5,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [1, 2, 3, 4, 5]
-                .map(
-                  (idx) => Container(
-                    margin: const EdgeInsets.only(right: 12),
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.red.shade100),
-                    ),
-                    child: Center(
-                      child: Text(
-                        '$idx',
-                        style: const TextStyle(
-                          color: Colors.red,
-                          fontWeight: FontWeight.bold,
+          const SizedBox(height: 16),
+          if (displaySales.isEmpty)
+            const Text(
+              'No recent bills found.',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+                fontStyle: FontStyle.italic,
+              ),
+            )
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: List.generate(displaySales.length, (index) {
+                  final tx = displaySales[index];
+
+                  // Calculate relative bill number for this customer
+                  final customerTxs =
+                      transactions
+                          .where(
+                            (ctx) =>
+                                ctx.customerId == tx.customerId &&
+                                ctx.type != 'purchase' &&
+                                ctx.type != 'debit',
+                          )
+                          .toList()
+                        ..sort((a, b) => a.date.compareTo(b.date));
+
+                  final billNum =
+                      customerTxs.indexWhere((ctx) => ctx.id == tx.id) + 1;
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 10),
+                    child: InkWell(
+                      onTap: () {
+                        // Open bill detail screen
+                        // For now we show the index label like Next.js but pass actual billNum
+                        _showBillPreview(ref.context, tx, billNum, appData);
+                      },
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(0xFFFEF2F2),
+                          border: Border.all(color: const Color(0xFFFEE2E2)),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${index + 1}',
+                            style: GoogleFonts.outfit(
+                              color: const Color(0xFFDC2626),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
                         ),
                       ),
                     ),
+                  );
+                }),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _showBillPreview(
+    BuildContext context,
+    Transaction tx,
+    int billNum,
+    AppData appData,
+  ) {
+    final customer = appData.customers.firstWhere((c) => c.id == tx.customerId);
+    final dateStr = DateFormat(
+      'dd MMM yyyy, hh:mm a',
+    ).format(DateTime.parse(tx.date));
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.85,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Bill #$billNum',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        dateStr,
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
-                )
-                .toList(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Customer: ${customer.name}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'ITEMS',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (tx.items != null)
+                      ...tx.items!.map(
+                        (i) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${i.itemName} x ${i.quantity}',
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                              Text(
+                                'Rs. ${(i.unitPrice * i.quantity).toStringAsFixed(0)}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    const Divider(height: 32),
+                    _summaryRow('Bill Total', tx.totalAmount),
+                    _summaryRow(
+                      'Paid',
+                      tx.amountPaid +
+                          (tx.additionalPayments?.fold(
+                                0.0,
+                                (sum, p) => sum! + p.amount,
+                              ) ??
+                              0.0),
+                    ),
+                    _summaryRow(
+                      'Remaining',
+                      tx.remainingBalance,
+                      isBold: true,
+                      color: Colors.red,
+                    ),
+                    const SizedBox(height: 40),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => PdfService.generateAndShareBill(
+                        tx,
+                        customer,
+                        appData.settings.billDesign,
+                      ),
+                      icon: const Icon(Icons.picture_as_pdf),
+                      label: const Text('PDF'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _shareOnWhatsApp(customer, tx),
+                      icon: const Icon(Icons.share),
+                      label: const Text('WhatsApp'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _summaryRow(
+    String label,
+    double val, {
+    bool isBold = false,
+    Color? color,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+          Text(
+            val.toStringAsFixed(0),
+            style: TextStyle(fontWeight: FontWeight.bold, color: color),
           ),
         ],
       ),
     );
+  }
+
+  void _shareOnWhatsApp(Customer c, Transaction tx) async {
+    final msg =
+        "Bill Receipt for ${c.name}\nDate: ${tx.date}\nTotal: ${tx.totalAmount}\nRemaining: ${tx.remainingBalance}";
+    final url = "https://wa.me/${c.phone}?text=${Uri.encodeComponent(msg)}";
+    await launchUrl(Uri.parse(url));
   }
 
   Widget _buildItemsList(

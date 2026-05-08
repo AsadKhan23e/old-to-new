@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../logic/providers/app_data_provider.dart';
 import '../../logic/providers/auth_provider.dart';
 import '../../models/app_models.dart';
@@ -41,6 +43,19 @@ class DashboardScreen extends ConsumerWidget {
     String userName,
   ) {
     final summary = _calculateSummary(data);
+    final upcomingReminders =
+        data.reminders
+            .where(
+              (r) =>
+                  r.status != 'completed' &&
+                  DateTime.parse(
+                    r.dueDate,
+                  ).isAfter(DateTime.now().subtract(const Duration(days: 1))),
+            )
+            .toList()
+          ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+
+    final displayReminders = upcomingReminders.take(5).toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -49,6 +64,16 @@ class DashboardScreen extends ConsumerWidget {
         children: [
           _buildHeader(userName),
           const SizedBox(height: 24),
+
+          // App Update Placeholder (matching Next.js UI logic)
+          // _buildUpdateNotification(context),
+          if (displayReminders.isNotEmpty) ...[
+            _buildSectionTitle('Upcoming Reminders', const Color(0xFF6B7A50)),
+            const SizedBox(height: 12),
+            ...displayReminders.map((r) => _buildReminderCard(context, r)),
+            const SizedBox(height: 24),
+          ],
+
           _buildQuickActions(context),
           const SizedBox(height: 32),
           const Divider(color: Color(0xFFCFCAC0)),
@@ -70,20 +95,24 @@ class DashboardScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Assalam-o-Alaikum, $name',
-            style: const TextStyle(
-              fontSize: 28,
-
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF2F2F2F),
-            ),
+          Row(
+            children: [
+              Text(
+                'Assalam-o-Alaikum, $name',
+                style: GoogleFonts.outfit(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF2F2F2F),
+                ),
+              ),
+              const Spacer(),
+              const Icon(Icons.sync, size: 16, color: Colors.green),
+            ],
           ),
           const Text(
             'Daily Business Journal',
             style: TextStyle(
               fontSize: 14,
-
               fontStyle: FontStyle.italic,
               color: Colors.grey,
             ),
@@ -93,52 +122,80 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  // Reminders section removed as requested by the user.
+  Widget _buildReminderCard(BuildContext context, Reminder reminder) {
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Color(0xFFCFCAC0)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    reminder.customerName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    'Due: ${reminder.dueDate} - Rs. ${reminder.dueAmount.toStringAsFixed(0)}',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+            ElevatedButton.icon(
+              onPressed: () => _sendReminder(reminder),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6B7A50),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                minimumSize: Size.zero,
+              ),
+              icon: const Icon(Icons.send, size: 14),
+              label: const Text('Send', style: TextStyle(fontSize: 12)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _sendReminder(Reminder reminder) async {
+    final message = Uri.encodeComponent(reminder.message);
+    final phone = reminder.customerPhone;
+    final url = Uri.parse("https://wa.me/$phone?text=$message");
+
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      // Fallback to SMS
+      final smsUrl = Uri.parse("sms:$phone?body=$message");
+      if (await canLaunchUrl(smsUrl)) {
+        await launchUrl(smsUrl);
+      }
+    }
+  }
 
   Widget _buildQuickActions(BuildContext context) {
     final actions = [
-      {
-        'label': 'Items',
-        'icon': Icons.inventory_2,
-        'color': const Color(0xFF8C6A4F),
-        'route': 'items',
-      },
-      {
-        'label': 'History',
-        'icon': Icons.receipt_long,
-        'color': const Color(0xFF8C6A4F),
-        'route': 'transactions',
-      },
-      {
-        'label': 'Add Cust',
-        'icon': Icons.person_add,
-        'color': const Color(0xFF8C6A4F),
-        'route': 'add_customer',
-      },
-      {
-        'label': 'Customers',
-        'icon': Icons.people,
-        'color': const Color(0xFF8C6A4F),
-        'route': 'customers',
-      },
-      {
-        'label': 'Suppliers',
-        'icon': Icons.business,
-        'color': const Color(0xFF8C6A4F),
-        'route': 'suppliers',
-      },
-      {
-        'label': 'Reminders',
-        'icon': Icons.notifications,
-        'color': const Color(0xFF8C6A4F),
-        'route': 'reminders',
-      },
-      {
-        'label': 'Reports',
-        'icon': Icons.description,
-        'color': const Color(0xFF8C6A4F),
-        'route': 'reports',
-      },
+      {'label': 'Items', 'icon': Icons.inventory_2, 'route': 'items'},
+      {'label': 'History', 'icon': Icons.receipt_long, 'route': 'transactions'},
+      {'label': 'Add Cust', 'icon': Icons.person_add, 'route': 'add_customer'},
+      {'label': 'Customers', 'icon': Icons.people, 'route': 'customers'},
+      {'label': 'Suppliers', 'icon': Icons.business, 'route': 'suppliers'},
+      {'label': 'Reminders', 'icon': Icons.notifications, 'route': 'reminders'},
+      {'label': 'Reports', 'icon': Icons.description, 'route': 'reports'},
     ];
 
     return GridView.builder(
@@ -154,7 +211,7 @@ class DashboardScreen extends ConsumerWidget {
       itemBuilder: (context, index) {
         final a = actions[index];
         return Card(
-          elevation: 1,
+          elevation: 0,
           color: Colors.white,
           margin: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
@@ -169,8 +226,8 @@ class DashboardScreen extends ConsumerWidget {
               children: [
                 Icon(
                   a['icon'] as IconData,
-                  color: a['color'] as Color,
-                  size: 32,
+                  color: const Color(0xFF8C6A4F),
+                  size: 30,
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -178,7 +235,7 @@ class DashboardScreen extends ConsumerWidget {
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 12,
+                    fontSize: 11,
                   ),
                 ),
               ],
@@ -192,8 +249,6 @@ class DashboardScreen extends ConsumerWidget {
   void _navigate(BuildContext context, String route) {
     switch (route) {
       case 'add_customer':
-        // Instead of a route, we launch the home screen and maybe could open a dialog
-        // For simplicity now, just push HomeScreen where they can click '+'
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const HomeScreen()),
@@ -235,8 +290,6 @@ class DashboardScreen extends ConsumerWidget {
           MaterialPageRoute(builder: (context) => const ReportsScreen()),
         );
         break;
-      default:
-        break;
     }
   }
 
@@ -248,19 +301,19 @@ class DashboardScreen extends ConsumerWidget {
         const SizedBox(height: 16),
         _buildSummaryCard(
           'TOTAL JAMA',
-          summary.totalJama.toString(),
+          summary.totalJama.toStringAsFixed(0),
           Colors.green.shade700,
         ),
         const SizedBox(height: 12),
         _buildSummaryCard(
           'TOTAL UDHAR',
-          summary.totalUdhar.toString(),
+          summary.totalUdhar.toStringAsFixed(0),
           Colors.red.shade700,
         ),
         const SizedBox(height: 12),
         _buildSummaryCard(
           'NET BALANCE',
-          summary.netBalance.toString(),
+          summary.netBalance.toStringAsFixed(0),
           Colors.black87,
         ),
       ],
@@ -273,9 +326,6 @@ class DashboardScreen extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
-        ],
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFCFCAC0)),
       ),
@@ -285,17 +335,17 @@ class DashboardScreen extends ConsumerWidget {
           Text(
             title,
             style: const TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
-              letterSpacing: 1.1,
               color: Colors.grey,
+              letterSpacing: 1,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             value,
             style: TextStyle(
-              fontSize: 32,
+              fontSize: 28,
               fontWeight: FontWeight.bold,
               color: color,
             ),
@@ -313,7 +363,7 @@ class DashboardScreen extends ConsumerWidget {
       padding: const EdgeInsets.only(left: 8),
       child: Text(
         title,
-        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -322,33 +372,31 @@ class DashboardScreen extends ConsumerWidget {
     double jama = 0;
     double udhar = 0;
 
-    final customerIds = data.customers
-        .where((c) => !c.isSupplier)
-        .map((c) => c.id)
-        .toSet();
+    final customers = data.customers.where((c) => !c.isSupplier).toList();
+    final customerIds = customers.map((c) => c.id).toSet();
     final customerTxs = data.transactions
         .where((tx) => customerIds.contains(tx.customerId))
         .toList();
 
     for (var tx in customerTxs) {
-      jama += tx.amountPaid;
-      if (tx.additionalPayments != null) {
-        for (var p in tx.additionalPayments!) {
-          jama += p.amount;
-        }
-      }
       if (tx.type == 'debit') {
-        // In case direct payments were saved in totalAmount for some reason
-        if (tx.amountPaid == 0) jama += tx.totalAmount;
+        jama += tx.totalAmount;
+      } else {
+        jama += (tx.amountPaid);
+        if (tx.additionalPayments != null) {
+          for (var p in tx.additionalPayments!) {
+            jama += p.amount;
+          }
+        }
       }
     }
 
-    for (var customer in data.customers.where((c) => !c.isSupplier)) {
-      final txs = data.transactions
-          .where((t) => t.customerId == customer.id)
-          .toList();
+    for (var customer in customers) {
+      final txs =
+          data.transactions.where((t) => t.customerId == customer.id).toList()
+            ..sort((a, b) => b.date.compareTo(a.date));
+
       if (txs.isNotEmpty) {
-        txs.sort((a, b) => b.date.compareTo(a.date));
         final latest = txs.first;
         if (latest.remainingBalance > 0) {
           udhar += latest.remainingBalance;

@@ -416,6 +416,22 @@ class BillDesignSettings {
         template: map['template'] ?? 'classic',
         footer: map['footer'] ?? '',
       );
+
+  BillDesignSettings copyWith({
+    String? shopName,
+    List<BillDesignContact>? contacts,
+    String? address,
+    String? logo,
+    String? template,
+    String? footer,
+  }) => BillDesignSettings(
+    shopName: shopName ?? this.shopName,
+    contacts: contacts ?? this.contacts,
+    address: address ?? this.address,
+    logo: logo ?? this.logo,
+    template: template ?? this.template,
+    footer: footer ?? this.footer,
+  );
 }
 
 class AppSettings {
@@ -443,6 +459,18 @@ class AppSettings {
     viewMode: map['viewMode'] ?? 'user',
     theme: map['theme'] ?? 'system',
     billDesign: BillDesignSettings.fromMap(map['billDesign'] ?? {}),
+  );
+
+  AppSettings copyWith({
+    String? language,
+    String? viewMode,
+    String? theme,
+    BillDesignSettings? billDesign,
+  }) => AppSettings(
+    language: language ?? this.language,
+    viewMode: viewMode ?? this.viewMode,
+    theme: theme ?? this.theme,
+    billDesign: billDesign ?? this.billDesign,
   );
 }
 
@@ -485,5 +513,19 @@ class AppData {
         ? List<Reminder>.from(map['reminders'].map((x) => Reminder.fromMap(x)))
         : [],
     settings: AppSettings.fromMap(map['settings'] ?? {}),
+  );
+
+  AppData copyWith({
+    List<Customer>? customers,
+    List<Item>? items,
+    List<Transaction>? transactions,
+    List<Reminder>? reminders,
+    AppSettings? settings,
+  }) => AppData(
+    customers: customers ?? this.customers,
+    items: items ?? this.items,
+    transactions: transactions ?? this.transactions,
+    reminders: reminders ?? this.reminders,
+    settings: settings ?? this.settings,
   );
 }

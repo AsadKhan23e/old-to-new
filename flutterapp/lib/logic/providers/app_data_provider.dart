@@ -237,6 +237,204 @@ class AppDataNotifier extends AsyncNotifier<AppData> {
     );
   }
 
+  void addReminder(Reminder reminder) {
+    final cur = state.value;
+    if (cur == null) return;
+    saveData(
+      AppData(
+        customers: cur.customers,
+        items: cur.items,
+        transactions: cur.transactions,
+        reminders: [...cur.reminders, reminder],
+        settings: cur.settings,
+      ),
+    );
+  }
+
+  void updateReminder(Reminder reminder) {
+    final cur = state.value;
+    if (cur == null) return;
+    final index = cur.reminders.indexWhere((r) => r.id == reminder.id);
+    if (index == -1) return;
+    final list = [...cur.reminders];
+    list[index] = reminder;
+    saveData(
+      AppData(
+        customers: cur.customers,
+        items: cur.items,
+        transactions: cur.transactions,
+        reminders: list,
+        settings: cur.settings,
+      ),
+    );
+  }
+
+  void deleteReminder(String id) {
+    final cur = state.value;
+    if (cur == null) return;
+    final list = cur.reminders.where((r) => r.id != id).toList();
+    saveData(
+      AppData(
+        customers: cur.customers,
+        items: cur.items,
+        transactions: cur.transactions,
+        reminders: list,
+        settings: cur.settings,
+      ),
+    );
+  }
+
+  void addBillPayment(String txId, double amount, {String? notes}) {
+    final cur = state.value;
+    if (cur == null) return;
+    final index = cur.transactions.indexWhere((t) => t.id == txId);
+    if (index == -1) return;
+
+    final tx = cur.transactions[index];
+    final newPayment = Payment(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      amount: amount,
+      date: DateTime.now().toIso8601String(),
+      notes: notes,
+    );
+
+    final updatedPayments = [...(tx.additionalPayments ?? []), newPayment];
+    final totalPaidSoFar =
+        tx.amountPaid + updatedPayments.fold(0.0, (sum, p) => sum + p.amount);
+    final newRemaining =
+        (tx.type == 'credit' || (tx.items != null && tx.items!.isNotEmpty))
+        ? (tx.totalAmount + (tx.previousBalance ?? 0)) - totalPaidSoFar
+        : tx.remainingBalance - amount;
+
+    final updatedTx = Transaction(
+      id: tx.id,
+      customerId: tx.customerId,
+      customerName: tx.customerName,
+      items: tx.items,
+      totalAmount: tx.totalAmount,
+      amountPaid: tx.amountPaid,
+      type: tx.type,
+      date: tx.date,
+      modifiedAt: DateTime.now().toIso8601String(),
+      notes: tx.notes,
+      remainingBalance: newRemaining,
+      previousBalance: tx.previousBalance,
+      grandTotal: tx.grandTotal,
+      additionalPayments: updatedPayments,
+      paid: newRemaining <= 0,
+      status: newRemaining <= 0 ? 'closed' : tx.status,
+      isEdited: true,
+      billNumber: tx.billNumber,
+      image: tx.image,
+      billAdjustments: tx.billAdjustments,
+    );
+
+    final txList = [...cur.transactions];
+    txList[index] = updatedTx;
+
+    saveData(
+      AppData(
+        customers: cur.customers,
+        items: cur.items,
+        transactions: txList,
+        reminders: cur.reminders,
+        settings: cur.settings,
+      ),
+    );
+  }
+
+  void deleteTransaction(Transaction tx) {
+    final cur = state.value;
+    if (cur == null) return;
+
+    // 1. Restore Stock (if sale)
+    final updatedItems = [...cur.items];
+    if (tx.items != null && tx.items!.isNotEmpty) {
+      for (var ci in tx.items!) {
+        final idx = updatedItems.indexWhere((i) => i.id == ci.itemId);
+        if (idx != -1) {
+          final inv = updatedItems[idx];
+          updatedItems[idx] = Item(
+            id: inv.id,
+            itemName: inv.itemName,
+            quantity: inv.quantity + ci.quantity,
+            purchasePrice: inv.purchasePrice,
+            sellingPrice: inv.sellingPrice,
+            createdAt: inv.createdAt,
+            notes: inv.notes,
+            picture: inv.picture,
+            supplierName: inv.supplierName,
+            supplierPhone: inv.supplierPhone,
+            modifiedAt: DateTime.now().toIso8601String(),
+          );
+        }
+      }
+    }
+
+    // 2. Remove Tx
+    final remainingTxs = cur.transactions.where((t) => t.id != tx.id).toList();
+
+    // 3. Recalculate subsequent balances for this customer
+    final customerTxs = remainingTxs
+        .where((t) => t.customerId == tx.customerId)
+        .toList();
+    customerTxs.sort((a, b) => a.date.compareTo(b.date)); // Chronological order
+
+    double runningBalance = 0;
+    final Map<String, Transaction> recalculatedMap = {};
+
+    for (var t in customerTxs) {
+      final billAmount =
+          (t.type == 'credit' || (t.items != null && t.items!.isNotEmpty))
+          ? t.totalAmount
+          : 0.0;
+      final debitAmount = (t.type == 'debit') ? t.totalAmount : 0.0;
+      final paymentAmount =
+          t.amountPaid +
+          (t.additionalPayments?.fold(0.0, (sum, p) => sum! + p.amount) ?? 0.0);
+
+      final double prevBal = runningBalance;
+      runningBalance = (prevBal + billAmount) - (debitAmount + paymentAmount);
+
+      recalculatedMap[t.id] = Transaction(
+        id: t.id,
+        customerId: t.customerId,
+        customerName: t.customerName,
+        items: t.items,
+        totalAmount: t.totalAmount,
+        amountPaid: t.amountPaid,
+        type: t.type,
+        date: t.date,
+        modifiedAt: t.modifiedAt,
+        notes: t.notes,
+        remainingBalance: runningBalance,
+        previousBalance: prevBal,
+        grandTotal: prevBal + billAmount,
+        additionalPayments: t.additionalPayments,
+        paid: runningBalance <= 0,
+        status: t.status,
+        isEdited: t.isEdited,
+        billNumber: t.billNumber,
+        image: t.image,
+        billAdjustments: t.billAdjustments,
+      );
+    }
+
+    final finalTxs = remainingTxs
+        .map((t) => recalculatedMap[t.id] ?? t)
+        .toList();
+
+    saveData(
+      AppData(
+        customers: cur.customers,
+        items: updatedItems,
+        transactions: finalTxs,
+        reminders: cur.reminders,
+        settings: cur.settings,
+      ),
+    );
+  }
+
   void updateSettings(AppSettings settings) {
     final cur = state.value;
     if (cur == null) return;

@@ -560,6 +560,15 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                IconButton(
+                  onPressed: () => _confirmDeleteTransaction(tx),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    size: 20,
+                    color: Colors.grey,
+                  ),
+                  tooltip: 'Delete Entry',
+                ),
                 TextButton.icon(
                   onPressed: () => _shareBillOnWhatsApp(customer, tx),
                   icon: const Icon(Icons.share, size: 16),
@@ -575,6 +584,32 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _confirmDeleteTransaction(Transaction tx) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Entry?'),
+        content: const Text(
+          'This will remove the transaction and update stock/balances. This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCEL'),
+          ),
+          TextButton(
+            onPressed: () {
+              ref.read(appDataProvider.notifier).deleteTransaction(tx);
+              Navigator.pop(context);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('DELETE'),
+          ),
+        ],
       ),
     );
   }
@@ -659,7 +694,6 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
               controller: amtCtrl,
               decoration: const InputDecoration(
                 labelText: 'Amount Received',
-                prefixIcon: Icon(Icons.currency_rupee),
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
@@ -671,7 +705,6 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                 labelText: 'Notes (Optional)',
                 border: OutlineInputBorder(),
               ),
-              maxLines: 2,
             ),
           ],
         ),
@@ -688,49 +721,22 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                     .where((t) => t.customerId == customer.id)
                     .toList();
                 txs.sort((a, b) => b.date.compareTo(a.date));
-                final prevBal = txs.isNotEmpty ? txs.first.remainingBalance : 0;
-
-                // PRD Flow: Check open bill exists
-                final openBillIndex = txs.indexWhere(
-                  (t) => t.type == 'credit' && t.paid == false,
+                final openBillIdx = txs.indexWhere(
+                  (t) => t.type == 'credit' && t.remainingBalance > 0,
                 );
 
-                if (openBillIndex != -1) {
-                  // Add payment to that bill
-                  final openBill = txs[openBillIndex];
-                  final List<Payment> existingPayments =
-                      openBill.additionalPayments ?? [];
-                  existingPayments.add(
-                    Payment(
-                      id: DateTime.now().millisecondsSinceEpoch.toString(),
-                      amount: amt,
-                      date: DateTime.now().toIso8601String(),
-                      notes: noteCtrl.text,
-                    ),
-                  );
-
-                  final updatedBill = Transaction(
-                    id: openBill.id,
-                    customerId: openBill.customerId,
-                    customerName: openBill.customerName,
-                    type: openBill.type,
-                    items: openBill.items,
-                    totalAmount: openBill.totalAmount,
-                    amountPaid: openBill.amountPaid,
-                    additionalPayments: existingPayments,
-                    date: openBill.date,
-                    previousBalance: openBill.previousBalance,
-                    grandTotal: openBill.grandTotal,
-                    remainingBalance: openBill.remainingBalance - amt,
-                    paid: (openBill.remainingBalance - amt) <= 0,
-                    notes: openBill.notes,
-                    billNumber: openBill.billNumber,
-                  );
+                if (openBillIdx != -1) {
                   ref
                       .read(appDataProvider.notifier)
-                      .updateTransaction(updatedBill);
+                      .addBillPayment(
+                        txs[openBillIdx].id,
+                        amt,
+                        notes: noteCtrl.text,
+                      );
                 } else {
-                  // If no open bill, fall back to debit entry
+                  final prevBal = txs.isNotEmpty
+                      ? txs.first.remainingBalance
+                      : 0;
                   ref
                       .read(appDataProvider.notifier)
                       .addTransaction(
@@ -746,6 +752,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                           previousBalance: prevBal.toDouble(),
                           paid: (prevBal - amt) <= 0,
                           notes: noteCtrl.text,
+                          status: 'closed',
                         ),
                       );
                 }
@@ -767,7 +774,8 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
     double totalSales = 0;
     double totalPaid = 0;
     for (var tx in txs) {
-      if (tx.type != 'debit') totalSales += tx.totalAmount;
+      if (tx.type != 'debit' && tx.type != 'purchase')
+        totalSales += tx.totalAmount;
       totalPaid += tx.amountPaid;
       if (tx.additionalPayments != null) {
         for (var p in tx.additionalPayments!) {

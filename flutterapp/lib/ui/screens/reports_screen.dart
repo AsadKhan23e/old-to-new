@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../logic/providers/app_data_provider.dart';
 import '../../models/app_models.dart';
 import 'package:intl/intl.dart';
@@ -19,11 +21,12 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFAF8F3),
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Financial Reports',
-          style: TextStyle( fontWeight: FontWeight.bold),
+          style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
         ),
         backgroundColor: const Color(0xFFFAF8F3),
+        elevation: 0,
       ),
       body: appDataAsync.when(
         data: (data) => _buildContent(data),
@@ -45,31 +48,33 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
           const SizedBox(height: 24),
           _buildSummaryBox(reportData),
           const SizedBox(height: 32),
-          const Text(
-            'Customer Ledger Breakdown',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              
-              letterSpacing: 0.5,
-            ),
-          ),
+
+          _buildSectionTitle('Top Selling Items', Colors.orange),
           const SizedBox(height: 12),
-          ...reportData.customerSummaries
+          ...reportData.topItems.take(5).map((item) => _buildTopItemRow(item)),
+          const SizedBox(height: 32),
+
+          _buildSectionTitle('Overdue Customers', Colors.red),
+          const SizedBox(height: 12),
+          ...reportData.overdueCustomers
               .take(10)
-              .map((s) => _buildCustomerRow(s)),
-          if (reportData.customerSummaries.length > 10)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Text(
-                  '...view more in transactions',
-                  style: TextStyle(fontSize: 10, color: Colors.grey),
-                ),
-              ),
-            ),
+              .map((c) => _buildOverdueRow(c)),
+
           const SizedBox(height: 40),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title, Color color) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(left: BorderSide(color: color, width: 4)),
+      ),
+      padding: const EdgeInsets.only(left: 8),
+      child: Text(
+        title,
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -87,9 +92,9 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
         const SizedBox(width: 12),
         Expanded(
           child: _statCard(
-            'EST. PROFIT',
+            'TOTAL PROFIT',
             data.totalProfit.toStringAsFixed(0),
-            Colors.orange.shade800,
+            Colors.green.shade800,
           ),
         ),
       ],
@@ -110,7 +115,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
           Text(
             label,
             style: const TextStyle(
-              fontSize: 9,
+              fontSize: 10,
               fontWeight: FontWeight.bold,
               color: Colors.grey,
             ),
@@ -119,7 +124,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
           Text(
             val,
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
               color: color,
             ),
@@ -130,42 +135,39 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   }
 
   Widget _buildSummaryBox(_ReportData data) {
-    return Card(
-      color: Colors.white,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Color(0xFFCFCAC0)),
+        border: Border.all(color: const Color(0xFFCFCAC0)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            _summaryItem(
-              'TOTAL MONEY RECEIVABLE (UDHAR)',
-              data.totalUdhar,
-              Colors.red.shade700,
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Divider(),
-            ),
-            _summaryItem(
-              'TOTAL ADVANCE DEPOSITS (JAMA)',
-              data.totalJama,
-              Colors.green.shade700,
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Divider(),
-            ),
-            _summaryItem(
-              'NET RECOVERY VALUE',
-              data.totalUdhar - data.totalJama,
-              Colors.black87,
-            ),
-          ],
-        ),
+      child: Column(
+        children: [
+          _summaryItem(
+            'TOTAL RECEIVABLE (UDHAR)',
+            data.totalUdhar,
+            Colors.red.shade700,
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Divider(),
+          ),
+          _summaryItem(
+            'TOTAL DEPOSITS (JAMA)',
+            data.totalJama,
+            Colors.green.shade700,
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Divider(),
+          ),
+          _summaryItem(
+            'NET RECOVERY VALUE',
+            data.totalUdhar - data.totalJama,
+            Colors.black87,
+          ),
+        ],
       ),
     );
   }
@@ -179,7 +181,6 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
             fontSize: 10,
             fontWeight: FontWeight.bold,
             color: Colors.grey,
-            letterSpacing: 0.8,
           ),
         ),
         const SizedBox(height: 6),
@@ -195,29 +196,109 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     );
   }
 
-  Widget _buildCustomerRow(_CustomerRow s) {
+  Widget _buildTopItemRow(_TopItem item) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.grey.shade100),
+        side: BorderSide(color: Colors.grey.shade200),
       ),
       child: ListTile(
-        dense: true,
         title: Text(
-          s.name,
+          item.name,
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
+        subtitle: Text('Sold: ${item.quantity} units'),
         trailing: Text(
-          s.balance.abs().toStringAsFixed(0),
-          style: TextStyle(
+          'Rs. ${item.revenue.toStringAsFixed(0)}',
+          style: const TextStyle(
             fontWeight: FontWeight.bold,
-            color: s.balance > 0 ? Colors.red : Colors.green,
+            color: Colors.blue,
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildOverdueRow(_OverdueCustomer c) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      c.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Text(
+                      c.phone,
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'Rs. ${c.balance.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: Colors.red,
+                      ),
+                    ),
+                    Text(
+                      'Oldest: ${c.oldestDate}',
+                      style: const TextStyle(fontSize: 10, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton.icon(
+                  onPressed: () => _sendReminder(c),
+                  icon: const Icon(Icons.message, size: 16),
+                  label: const Text('Send Reminder'),
+                  style: TextButton.styleFrom(foregroundColor: Colors.blue),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _sendReminder(_OverdueCustomer customer) async {
+    final message = Uri.encodeComponent(
+      "Hello ${customer.name}, this is a friendly reminder that you have an outstanding balance of ${customer.balance.toStringAsFixed(0)}. Thank you.",
+    );
+    final url = Uri.parse("https://wa.me/${customer.phone}?text=$message");
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      await launchUrl(Uri.parse("sms:${customer.phone}?body=$message"));
+    }
   }
 
   _ReportData _calculateDetailedReport(AppData data) {
@@ -225,33 +306,58 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     double totalUdhar = 0;
     double todaySales = 0;
     double totalProfit = 0;
-    final List<_CustomerRow> summaries = [];
+    final Map<String, _TopItem> itemStats = {};
+    final List<_OverdueCustomer> overdue = [];
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
-    // Calculate Udhar/Jama
+    // Udhar/Jama and Overdue Customers
     for (var customer in data.customers.where((c) => !c.isSupplier)) {
-      final txs = data.transactions
-          .where((t) => t.customerId == customer.id)
-          .toList();
+      final txs =
+          data.transactions.where((t) => t.customerId == customer.id).toList()
+            ..sort(
+              (a, b) => a.date.compareTo(b.date),
+            ); // ASC to find oldest unpaid
+
       if (txs.isNotEmpty) {
-        txs.sort((a, b) => b.date.compareTo(a.date));
-        final balance = txs.first.remainingBalance;
-        if (balance > 0) totalUdhar += balance;
-        if (balance < 0) totalJama += balance.abs();
-        summaries.add(_CustomerRow(name: customer.name, balance: balance));
+        final latestBalance = txs.last.remainingBalance;
+        if (latestBalance > 0) {
+          totalUdhar += latestBalance;
+          overdue.add(
+            _OverdueCustomer(
+              name: customer.name,
+              phone: customer.phone,
+              balance: latestBalance,
+              oldestDate: DateFormat(
+                'dd MMM yy',
+              ).format(DateTime.parse(txs.first.date)),
+            ),
+          );
+        } else if (latestBalance < 0) {
+          totalJama += latestBalance.abs();
+        }
       }
     }
 
-    // Calculate Profit & Sales
+    // Profit, Sales, and Top Items
     for (var tx in data.transactions) {
       final txDate = DateFormat('yyyy-MM-dd').format(DateTime.parse(tx.date));
-      if (txDate == today && tx.type != 'debit') {
+      if (txDate == today && tx.type != 'debit' && tx.type != 'purchase') {
         todaySales += tx.totalAmount;
       }
 
       if (tx.items != null) {
         for (var soldItem in tx.items!) {
-          // Find the original item to get purchase price
+          // Track sold items
+          final current =
+              itemStats[soldItem.itemName] ??
+              _TopItem(name: soldItem.itemName, quantity: 0, revenue: 0);
+          itemStats[soldItem.itemName] = _TopItem(
+            name: soldItem.itemName,
+            quantity: current.quantity + soldItem.quantity,
+            revenue: current.revenue + (soldItem.unitPrice * soldItem.quantity),
+          );
+
+          // Profit Calculation
           final invItem = data.items.cast<Item?>().firstWhere(
             (i) => i?.id == soldItem.itemId || i?.itemName == soldItem.itemName,
             orElse: () => null,
@@ -265,14 +371,17 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
       }
     }
 
-    summaries.sort((a, b) => b.balance.abs().compareTo(a.balance.abs()));
+    final topItemsList = itemStats.values.toList()
+      ..sort((a, b) => b.quantity.compareTo(a.quantity));
+    overdue.sort((a, b) => b.balance.compareTo(a.balance));
 
     return _ReportData(
       totalJama: totalJama,
       totalUdhar: totalUdhar,
       todaySales: todaySales,
       totalProfit: totalProfit,
-      customerSummaries: summaries,
+      topItems: topItemsList,
+      overdueCustomers: overdue,
     );
   }
 }
@@ -282,18 +391,34 @@ class _ReportData {
   final double totalUdhar;
   final double todaySales;
   final double totalProfit;
-  final List<_CustomerRow> customerSummaries;
+  final List<_TopItem> topItems;
+  final List<_OverdueCustomer> overdueCustomers;
   _ReportData({
     required this.totalJama,
     required this.totalUdhar,
     required this.todaySales,
     required this.totalProfit,
-    required this.customerSummaries,
+    required this.topItems,
+    required this.overdueCustomers,
   });
 }
 
-class _CustomerRow {
+class _TopItem {
   final String name;
+  final double quantity;
+  final double revenue;
+  _TopItem({required this.name, required this.quantity, required this.revenue});
+}
+
+class _OverdueCustomer {
+  final String name;
+  final String phone;
   final double balance;
-  _CustomerRow({required this.name, required this.balance});
+  final String oldestDate;
+  _OverdueCustomer({
+    required this.name,
+    required this.phone,
+    required this.balance,
+    required this.oldestDate,
+  });
 }

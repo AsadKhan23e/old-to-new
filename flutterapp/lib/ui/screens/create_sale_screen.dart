@@ -445,7 +445,9 @@ class _CreateSaleScreenState extends ConsumerState<CreateSaleScreen> {
     if (_selectedCustomerId == null || _cart.isEmpty) return;
     setState(() => _isSaving = true);
     final data = ref.read(appDataProvider).value;
-    final customer = data!.customers.firstWhere(
+    if (data == null) return;
+
+    final customer = data.customers.firstWhere(
       (c) => c.id == _selectedCustomerId,
     );
 
@@ -453,6 +455,17 @@ class _CreateSaleScreenState extends ConsumerState<CreateSaleScreen> {
       0.0,
       (sum, ci) => sum + (ci.unitPrice * ci.quantity),
     );
+
+    // Get all sales for this customer to determine bill number
+    final customerSales = data.transactions
+        .where(
+          (t) =>
+              t.customerId == customer.id &&
+              (t.type == null || (t.type != 'purchase' && t.type != 'debit')),
+        )
+        .toList();
+    final nextBillNum = customerSales.length + 1;
+
     final txs = data.transactions
         .where((t) => t.customerId == customer.id)
         .toList();
@@ -473,9 +486,35 @@ class _CreateSaleScreenState extends ConsumerState<CreateSaleScreen> {
       previousBalance: prevBal.toDouble(),
       grandTotal: prevBal + billTotal,
       paid: ((prevBal + billTotal) - paid) <= 0,
+      billNumber: nextBillNum,
+      notes: _notesCtrl.text,
+      status: 'open',
     );
 
+    // 1. Add Transaction
     ref.read(appDataProvider.notifier).addTransaction(newTx);
+
+    // 2. Decrement Stock
+    for (var ci in _cart) {
+      if (!ci.itemId.startsWith('custom_')) {
+        final invItem = data.items.firstWhere((i) => i.id == ci.itemId);
+        final updatedItem = Item(
+          id: invItem.id,
+          itemName: invItem.itemName,
+          quantity: invItem.quantity - ci.quantity,
+          purchasePrice: invItem.purchasePrice,
+          sellingPrice: invItem.sellingPrice,
+          createdAt: invItem.createdAt,
+          notes: invItem.notes,
+          picture: invItem.picture,
+          supplierName: invItem.supplierName,
+          supplierPhone: invItem.supplierPhone,
+          modifiedAt: DateTime.now().toIso8601String(),
+        );
+        ref.read(appDataProvider.notifier).updateItem(updatedItem);
+      }
+    }
+
     setState(() => _isSaving = false);
     Navigator.pop(context);
   }
