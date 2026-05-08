@@ -274,14 +274,30 @@ export const generateFullKhataPDF = async (
     doc.text(`Generated On: ${new Date().toLocaleString()}`, 210 - margin, currentY, { align: 'right' });
     currentY += 10;
 
+    // Sort transactions by date ASC to calculate bill numbers correctly
+    const sortedForNumbering = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
     // Ledger Table
-    const tableData = transactions.map((tx) => [
-        new Date(tx.date).toLocaleDateString(),
-        tx.type === 'debit' ? 'Cash/Other Payment' : (tx.items ? `Purchased (${tx.items.length} items)` : tx.itemName || 'Sale/Transaction'),
-        tx.type === 'debit' ? '-' : (tx.grandTotal || tx.totalAmount).toLocaleString(),
-        (tx.amountPaid + (tx.additionalPayments?.reduce((s, p) => s + p.amount, 0) || 0) + (tx.type === 'debit' ? tx.totalAmount : 0)).toLocaleString(),
-        tx.remainingBalance.toLocaleString()
-    ]);
+    const tableData = transactions.map((tx) => {
+        let billInfo = "";
+        if (tx.type !== 'debit') {
+            const salesTxs = sortedForNumbering.filter(t => t.type !== 'debit');
+            const bNum = salesTxs.findIndex(t => t.id === tx.id) + 1;
+            billInfo = `Bill #${bNum}: `;
+        }
+
+        const details = tx.type === 'debit'
+            ? 'Cash/Other Payment'
+            : (tx.items ? `Purchased (${tx.items.length} items)` : tx.itemName || 'Sale/Transaction');
+
+        return [
+            new Date(tx.date).toLocaleDateString(),
+            billInfo + details,
+            tx.type === 'debit' ? '-' : tx.totalAmount.toLocaleString(), // Show Bill Total (not Grand Total)
+            (tx.amountPaid + (tx.additionalPayments?.reduce((s, p) => s + p.amount, 0) || 0) + (tx.type === 'debit' ? tx.totalAmount : 0)).toLocaleString(),
+            tx.remainingBalance.toLocaleString()
+        ];
+    });
 
     autoTable(doc, {
         startY: currentY,
