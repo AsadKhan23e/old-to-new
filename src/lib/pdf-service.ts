@@ -113,7 +113,8 @@ export const generateSingleBillPDF = async (
     doc.text(`Date: ${new Date(transaction.date).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`, 210 - margin, currentY, { align: 'right' });
     currentY += 7;
     doc.text(`Phone: ${customer.phone}`, margin, currentY);
-    doc.text(`Bill #: ${transaction.billNumber || 'N/A'}`, 210 - margin, currentY, { align: 'right' });
+    currentY += 7;
+    doc.text(`Bill #: ${transaction.billNumber || 'N/A'}`, margin, currentY);
     currentY += 15;
 
     // Items Table
@@ -146,9 +147,13 @@ export const generateSingleBillPDF = async (
 
     currentY = (doc as any).lastAutoTable.finalY + 10;
 
-    // Summary Section
+    // Pre-calculate totals for summary
+    const totalPaid = (transaction.amountPaid || 0) + (transaction.additionalPayments?.reduce((sum, p) => sum + p.amount, 0) || 0);
     const rightAlignX = 210 - margin;
+
+    // Summary Section
     doc.setFontSize(11);
+    doc.setTextColor(80, 80, 80);
     doc.text(`Bill Total: ${transaction.totalAmount.toLocaleString()}`, rightAlignX, currentY, { align: 'right' });
     currentY += 6;
     doc.text(`Previous Balance: ${(transaction.previousBalance || 0).toLocaleString()}`, rightAlignX, currentY, { align: 'right' });
@@ -157,15 +162,24 @@ export const generateSingleBillPDF = async (
     doc.setFontSize(13);
     doc.setTextColor(0);
     doc.text(`Grand Total: ${(transaction.grandTotal || transaction.totalAmount + (transaction.previousBalance || 0)).toLocaleString()}`, rightAlignX, currentY, { align: 'right' });
-    currentY += 12;
+    currentY += 10;
 
-    // Payments Section
+    // Paid & Remaining Balance (User's specific Request - Right Aligned)
+    doc.setFontSize(11);
+    doc.setTextColor(22, 163, 74); // Green for paid
+    doc.text(`Total Paid: ${totalPaid.toLocaleString()}`, rightAlignX, currentY, { align: 'right' });
+    currentY += 8;
+
+    doc.setFontSize(14);
+    doc.setTextColor(180, 0, 0); // Red for balance
+    doc.text(`Remaining Balance: PS. ${transaction.remainingBalance.toLocaleString()}`, rightAlignX, currentY, { align: 'right' });
+    currentY += 15;
+
+    // Payment Details Section (Left Side)
     doc.setFontSize(12);
     doc.setTextColor(47, 47, 47);
     doc.text("Payment History", margin, currentY);
     currentY += 7;
-
-    const totalPaid = (transaction.amountPaid || 0) + (transaction.additionalPayments?.reduce((sum, p) => sum + p.amount, 0) || 0);
 
     doc.setFontSize(10);
     doc.setTextColor(80, 80, 80);
@@ -177,16 +191,6 @@ export const generateSingleBillPDF = async (
         doc.text(`- Payment: ${p.amount.toLocaleString()} (on ${new Date(p.date).toLocaleDateString()})${p.notes ? ` - ${p.notes}` : ''}`, margin + 5, currentY);
         currentY += 6;
     });
-
-    currentY += 4;
-    doc.setFontSize(11);
-    doc.setTextColor(0);
-    doc.text(`Total Paid: ${totalPaid.toLocaleString()}`, rightAlignX, currentY, { align: 'right' });
-    currentY += 8;
-
-    doc.setFontSize(14);
-    doc.setTextColor(180, 0, 0); // Red for balance
-    doc.text(`Remaining Balance: PS. ${transaction.remainingBalance.toLocaleString()}`, rightAlignX, currentY, { align: 'right' });
 
     // Notes
     if (transaction.notes) {
