@@ -164,33 +164,55 @@ export const generateSingleBillPDF = async (
     doc.text(`Grand Total: ${(transaction.grandTotal || transaction.totalAmount + (transaction.previousBalance || 0)).toLocaleString()}`, rightAlignX, currentY, { align: 'right' });
     currentY += 10;
 
-    // Paid & Remaining Balance (User's specific Request - Right Aligned)
+    // Payments Section
+    doc.setFontSize(12);
+    doc.setTextColor(0);
+    doc.text("Payments", margin, currentY);
+    currentY += 10;
+
+    doc.setFontSize(10);
+    doc.setTextColor(80, 80, 80);
+
+    const formatDateFull = (dateStr: string) => {
+        return new Date(dateStr).toLocaleString([], {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        }).replace(',', '');
+    };
+
+    if (transaction.amountPaid > 0) {
+        doc.text(`Initial Payment on ${formatDateFull(transaction.date)}`, margin + 5, currentY);
+        doc.text(`${transaction.amountPaid.toLocaleString()}`, rightAlignX, currentY, { align: 'right' });
+        currentY += 6;
+    }
+
+    (transaction.additionalPayments || []).forEach(p => {
+        const pDateText = formatDateFull(p.date);
+        const pNotesText = p.notes ? ` (${p.notes})` : '';
+        doc.text(`Payment on ${pDateText}${pNotesText}`, margin + 5, currentY);
+        doc.text(`${p.amount.toLocaleString()}`, rightAlignX, currentY, { align: 'right' });
+        currentY += 6;
+    });
+
+    // Divider for Totals
+    currentY += 4;
+    doc.setDrawColor(230, 230, 230);
+    doc.line(margin + 50, currentY, rightAlignX, currentY);
+    currentY += 8;
+
     doc.setFontSize(11);
-    doc.setTextColor(22, 163, 74); // Green for paid
-    doc.text(`Total Paid: ${totalPaid.toLocaleString()}`, rightAlignX, currentY, { align: 'right' });
+    doc.setTextColor(22, 163, 74); // Green for total paid
+    doc.text(`Total Paid:`, rightAlignX - 40, currentY, { align: 'right' });
+    doc.text(`${totalPaid.toLocaleString()}`, rightAlignX, currentY, { align: 'right' });
     currentY += 8;
 
     doc.setFontSize(14);
     doc.setTextColor(180, 0, 0); // Red for balance
     doc.text(`Remaining Balance: PS. ${transaction.remainingBalance.toLocaleString()}`, rightAlignX, currentY, { align: 'right' });
-    currentY += 15;
-
-    // Payment Details Section (Left Side)
-    doc.setFontSize(12);
-    doc.setTextColor(47, 47, 47);
-    doc.text("Payment History", margin, currentY);
-    currentY += 7;
-
-    doc.setFontSize(10);
-    doc.setTextColor(80, 80, 80);
-    if (transaction.amountPaid > 0) {
-        doc.text(`- Initial Payment: ${transaction.amountPaid.toLocaleString()} (on ${new Date(transaction.date).toLocaleDateString()})`, margin + 5, currentY);
-        currentY += 6;
-    }
-    (transaction.additionalPayments || []).forEach(p => {
-        doc.text(`- Payment: ${p.amount.toLocaleString()} (on ${new Date(p.date).toLocaleDateString()})${p.notes ? ` - ${p.notes}` : ''}`, margin + 5, currentY);
-        currentY += 6;
-    });
 
     // Notes
     if (transaction.notes) {
