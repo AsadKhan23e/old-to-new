@@ -1,7 +1,9 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Transaction, Customer, Item, BillDesignSettings } from './data-layer';
+import { Transaction, Customer, Item, BillDesignSettings, getIsPremium } from './data-layer';
 import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 // --- Rewarded Ads Credit System ---
 const PDF_CREDITS_KEY = 'cashbookpro_pdf_credits';
@@ -29,26 +31,6 @@ export function addPDFCredits(count: number) {
     window.dispatchEvent(new Event('cashbookpro_data_updated'));
 }
 
-function getIsPremiumLocal(): boolean {
-    if (typeof window === 'undefined') return false;
-
-    // Check if premium bought
-    if (localStorage.getItem('cashbookpro_isPremium') === 'true') return true;
-
-    // Check 3-day trial
-    const createdAtStr = localStorage.getItem('cashbookpro_createdAt');
-    if (createdAtStr) {
-        const signupDate = new Date(createdAtStr);
-        const threeDaysInMs = 3 * 24 * 60 * 60 * 1000;
-        const trialExpiry = new Date(signupDate.getTime() + threeDaysInMs);
-        return new Date() < trialExpiry;
-    }
-    return false;
-}
-
-import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Share } from '@capacitor/share';
-
 const saveOrSharePDF = async (doc: jsPDF, filename: string) => {
     if (Capacitor.isNativePlatform()) {
         try {
@@ -73,20 +55,52 @@ const saveOrSharePDF = async (doc: jsPDF, filename: string) => {
     }
 };
 
+const formatDateTime = (dateString: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '';
+    return date.toLocaleString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+    }).replace(',', '');
+};
+
 export const generateSingleBillPDF = async (
     transaction: Transaction,
     customer: Customer,
     billSettings: BillDesignSettings
 ) => {
-    // Credits check removed to ensure PDF generation works while ads are handled via popunders in UI
-
     const doc = new jsPDF();
     const margin = 15;
     let currentY = 20;
 
-    // Header: Shop Name
+    // --- Premium Background Banner Support ---
+    if (billSettings.backgroundBanner && getIsPremium()) {
+        try {
+            const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+                const i = new window.Image();
+                i.crossOrigin = "anonymous";
+                i.onload = () => resolve(i);
+                i.onerror = () => reject('Load failed');
+                i.src = billSettings.backgroundBanner!;
+            });
+
+            // Draw background as full-page watermark
+            doc.setGState(new (doc as any).GState({ opacity: 0.15 }));
+            doc.addImage(img, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+            doc.setGState(new (doc as any).GState({ opacity: 1.0 }));
+        } catch (e) {
+            console.warn('PDF Background load error ignored');
+        }
+    }
+
+    // Header: Shop Name (Olive Green)
     doc.setFontSize(24);
-    doc.setTextColor(47, 47, 47);
+    doc.setTextColor(107, 122, 80);
     doc.text(billSettings.shopName || 'Business Ledger', 105, currentY, { align: 'center' });
     currentY += 10;
 
@@ -102,20 +116,27 @@ export const generateSingleBillPDF = async (
     currentY += 15;
 
     // Divider
-    doc.setDrawColor(200, 200, 200);
-    doc.line(margin, currentY, 210 - margin, currentY);
+    doc.setDrawColor(107, 122, 80);
+    doc.setLineWidth(0.5);
+    doc.line(margin, currentY - 5, 210 - margin, currentY - 5);
     currentY += 10;
 
-    // Bill Info & Customer Info
-    doc.setFontSize(12);
+    // Bill Info & Customer Info (Matching Image 1)
+    doc.setFontSize(11);
     doc.setTextColor(0);
+    doc.setFont("helvetica", "bold");
     doc.text(`Bill To: ${customer.name}`, margin, currentY);
-    doc.text(`Date: ${new Date(transaction.date).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`, 210 - margin, currentY, { align: 'right' });
-    currentY += 7;
-    doc.text(`Phone: ${customer.phone}`, margin, currentY);
-    currentY += 7;
-    doc.text(`Bill #: ${transaction.billNumber || 'N/A'}`, margin, currentY);
-    currentY += 15;
+    doc.setFont("helvetica", "normal");
+    doc.text(`Date: ${formatDateTime(transaction.date)}`, 210 - margin, currentY, { align: 'right' });
+    currentY += 6;
+
+    // Customer Phone (Missing in Image 2, restored here)
+    if (customer.phone) {
+        doc.text(`Phone: ${customer.phone}`, margin, currentY);
+        currentY += 6;
+    }
+    doc.text(`Bill #: ${transaction.billNumber || 'Ref'}`, margin, currentY);
+    currentY += 12;
 
     // Items Table
     const tableData = (transaction.items || []).map((item, index) => [
@@ -126,111 +147,91 @@ export const generateSingleBillPDF = async (
         (item.quantity * item.unitPrice).toLocaleString()
     ]);
 
-    if (transaction.itemName) {
-        tableData.push([
-            1,
-            transaction.itemName,
-            transaction.quantity || 1,
-            (transaction.unitPrice || 0).toLocaleString(),
-            (transaction.totalAmount || 0).toLocaleString()
-        ]);
-    }
-
     autoTable(doc, {
         startY: currentY,
         head: [['#', 'Item Name', 'Qty', 'Unit Price', 'Total']],
         body: tableData,
         theme: 'striped',
-        headStyles: { fillColor: [107, 122, 80] }, // Match the app's green
-        margin: { left: margin, right: margin }
+        headStyles: { fillColor: [107, 122, 80], textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 10, cellPadding: 3 },
+        columnStyles: { 0: { halign: 'center' }, 2: { halign: 'center' }, 3: { halign: 'right' }, 4: { halign: 'right' } }
     });
 
     currentY = (doc as any).lastAutoTable.finalY + 10;
 
-    // Pre-calculate totals for summary
+    // Summary
     const totalPaid = (transaction.amountPaid || 0) + (transaction.additionalPayments?.reduce((sum, p) => sum + p.amount, 0) || 0);
-    const rightAlignX = 210 - margin;
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Bill Total: ${transaction.totalAmount.toLocaleString()}`, 210 - margin, currentY, { align: 'right' });
+    currentY += 5;
+    if (transaction.previousBalance) {
+        doc.text(`Previous Balance: ${transaction.previousBalance.toLocaleString()}`, 210 - margin, currentY, { align: 'right' });
+        currentY += 5;
+    }
+    doc.setFontSize(14);
+    doc.setTextColor(107, 122, 80);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Grand Total: ${(transaction.grandTotal || (transaction.totalAmount + (transaction.previousBalance || 0))).toLocaleString()}`, 210 - margin, currentY, { align: 'right' });
+    currentY += 15;
 
-    // Summary Section
-    doc.setFontSize(11);
-    doc.setTextColor(80, 80, 80);
-    doc.text(`Bill Total: ${transaction.totalAmount.toLocaleString()}`, rightAlignX, currentY, { align: 'right' });
-    currentY += 6;
-    doc.text(`Previous Balance: ${(transaction.previousBalance || 0).toLocaleString()}`, rightAlignX, currentY, { align: 'right' });
-    currentY += 8;
-
-    doc.setFontSize(13);
-    doc.setTextColor(0);
-    doc.text(`Grand Total: ${(transaction.grandTotal || transaction.totalAmount + (transaction.previousBalance || 0)).toLocaleString()}`, rightAlignX, currentY, { align: 'right' });
-    currentY += 10;
-
-    // Payments Section
+    // Payments Section (Restoring Date/Time and Notes from Image 1)
     doc.setFontSize(12);
     doc.setTextColor(0);
+    doc.setFont("helvetica", "bold");
     doc.text("Payments", margin, currentY);
-    currentY += 10;
+    currentY += 8;
 
     doc.setFontSize(10);
-    doc.setTextColor(80, 80, 80);
-
-    const formatDateFull = (dateStr: string) => {
-        return new Date(dateStr).toLocaleString([], {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-        }).replace(',', '');
-    };
+    doc.setTextColor(80);
+    doc.setFont("helvetica", "normal");
 
     if (transaction.amountPaid > 0) {
-        doc.text(`Initial Payment on ${formatDateFull(transaction.date)}`, margin + 5, currentY);
-        doc.text(`${transaction.amountPaid.toLocaleString()}`, rightAlignX, currentY, { align: 'right' });
+        const initialDate = formatDateTime(transaction.date);
+        doc.text(`Initial Payment on ${initialDate}`, margin + 5, currentY);
+        doc.text(transaction.amountPaid.toLocaleString(), 210 - margin, currentY, { align: 'right' });
         currentY += 6;
     }
 
-    (transaction.additionalPayments || []).forEach(p => {
-        const pDateText = formatDateFull(p.date);
-        const pNotesText = p.notes ? ` (${p.notes})` : '';
-        doc.text(`Payment on ${pDateText}${pNotesText}`, margin + 5, currentY);
-        doc.text(`${p.amount.toLocaleString()}`, rightAlignX, currentY, { align: 'right' });
+    transaction.additionalPayments?.forEach(p => {
+        const pDate = formatDateTime(p.date);
+        const notePart = p.notes ? ` (${p.notes})` : '';
+        doc.text(`Payment on ${pDate}${notePart}`, margin + 5, currentY);
+        doc.text(p.amount.toLocaleString(), 210 - margin, currentY, { align: 'right' });
         currentY += 6;
     });
 
-    // Divider for Totals
-    currentY += 4;
-    doc.setDrawColor(230, 230, 230);
-    doc.line(margin + 50, currentY, rightAlignX, currentY);
-    currentY += 8;
+    currentY += 10;
 
+    // Final Totals
+    doc.line(210 - margin - 40, currentY - 5, 210 - margin, currentY - 5);
     doc.setFontSize(11);
-    doc.setTextColor(22, 163, 74); // Green for total paid
-    doc.text(`Total Paid:`, rightAlignX - 40, currentY, { align: 'right' });
-    doc.text(`${totalPaid.toLocaleString()}`, rightAlignX, currentY, { align: 'right' });
+    doc.setTextColor(22, 163, 74);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Total Paid: ${totalPaid.toLocaleString()}`, 210 - margin, currentY, { align: 'right' });
     currentY += 8;
 
-    doc.setFontSize(14);
-    doc.setTextColor(180, 0, 0); // Red for balance
-    doc.text(`Remaining Balance: PS. ${transaction.remainingBalance.toLocaleString()}`, rightAlignX, currentY, { align: 'right' });
-
-    // Notes
-    if (transaction.notes) {
-        currentY += 15;
-        doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.text("Notes:", margin, currentY);
-        currentY += 5;
-        doc.text(transaction.notes, margin, currentY, { maxWidth: 180 });
-    }
+    doc.setFontSize(16);
+    doc.setTextColor(180, 0, 0);
+    doc.text(`Remaining Balance: PS. ${transaction.remainingBalance.toLocaleString()}`, 210 - margin, currentY, { align: 'right' });
 
     // Footer
     const pageHeight = doc.internal.pageSize.height;
     doc.setFontSize(10);
-    doc.setTextColor(150, 150, 150);
-    doc.text(billSettings.footer || 'Generated by MyShopBook', 105, pageHeight - 15, { align: 'center' });
+    doc.setTextColor(150);
+    doc.setFont("helvetica", "normal");
 
-    await saveOrSharePDF(doc, `Bill_${transaction.billNumber || 'Ref'}_${customer.name}.pdf`);
+    // Central Footer
+    doc.text("Account Managed by CashbookPro", 105, pageHeight - 15, { align: 'center' });
+    if (billSettings.footer) {
+        doc.text(billSettings.footer, 105, pageHeight - 10, { align: 'center' });
+    }
+
+    // Bottom Watermark
+    doc.setFontSize(8);
+    doc.text("Generated by MyShopBook", 105, pageHeight - 5, { align: 'center' });
+
+    await saveOrSharePDF(doc, `Bill_${transaction.billNumber || 'Ref'}.pdf`);
 };
 
 export const generateFullKhataPDF = async (
@@ -238,102 +239,36 @@ export const generateFullKhataPDF = async (
     transactions: Transaction[],
     billSettings: BillDesignSettings
 ) => {
-    // Credits check removed
-
     const doc = new jsPDF();
     const margin = 15;
     let currentY = 20;
 
-    // Header: Shop Name
-    doc.setFontSize(24);
-    doc.setTextColor(47, 47, 47);
+    doc.setFontSize(22);
+    doc.setTextColor(107, 122, 80);
     doc.text(billSettings.shopName || 'Business Ledger', 105, currentY, { align: 'center' });
-    currentY += 10;
-
-    // Address & Contacts
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    if (billSettings.address) {
-        doc.text(billSettings.address, 105, currentY, { align: 'center' });
-        currentY += 5;
-    }
-    const contactText = billSettings.contacts.map(c => `${c.label}: ${c.phone}`).join(' | ');
-    doc.text(contactText, 105, currentY, { align: 'center' });
+    currentY += 15;
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text(`Khata Statement: ${customer.name}`, 105, currentY, { align: 'center' });
     currentY += 15;
 
-    // Title
-    doc.setFontSize(16);
-    doc.setTextColor(0);
-    doc.text(`Full Khata Statement: ${customer.name}`, 105, currentY, { align: 'center' });
-    currentY += 12;
-
-    // Customer Summary
-    doc.setFontSize(11);
-    doc.setTextColor(80);
-    doc.text(`Statement Period: All Time`, margin, currentY);
-    doc.text(`Generated On: ${new Date().toLocaleString()}`, 210 - margin, currentY, { align: 'right' });
-    currentY += 10;
-
-    // Sort transactions by date ASC to calculate bill numbers correctly
-    const sortedForNumbering = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    // Ledger Table
-    const tableData = transactions.map((tx) => {
-        let billInfo = "";
-        if (tx.type !== 'debit') {
-            const salesTxs = sortedForNumbering.filter(t => t.type !== 'debit');
-            const bNum = salesTxs.findIndex(t => t.id === tx.id) + 1;
-            billInfo = `Bill #${bNum}: `;
-        }
-
-        const details = tx.type === 'debit'
-            ? 'Cash/Other Payment'
-            : (tx.items ? `Purchased (${tx.items.length} items)` : tx.itemName || 'Sale/Transaction');
-
-        return [
-            new Date(tx.date).toLocaleDateString(),
-            billInfo + details,
-            tx.type === 'debit' ? '-' : tx.totalAmount.toLocaleString(), // Show Bill Total (not Grand Total)
-            (tx.amountPaid + (tx.additionalPayments?.reduce((s, p) => s + p.amount, 0) || 0) + (tx.type === 'debit' ? tx.totalAmount : 0)).toLocaleString(),
-            tx.remainingBalance.toLocaleString()
-        ];
-    });
+    const tableData = transactions.map((tx) => [
+        new Date(tx.date).toLocaleDateString(),
+        tx.notes || (tx.type === 'debit' ? 'Payment' : 'Sale'),
+        tx.totalAmount.toLocaleString(),
+        (tx.amountPaid + (tx.additionalPayments?.reduce((s, p) => s + p.amount, 0) || 0)).toLocaleString(),
+        tx.remainingBalance.toLocaleString()
+    ]);
 
     autoTable(doc, {
         startY: currentY,
-        head: [['Date', 'Transaction Details', 'Bill Amount', 'Paid', 'Balance']],
+        head: [['Date', 'Description', 'Amount', 'Paid', 'Balance']],
         body: tableData,
         theme: 'grid',
-        headStyles: { fillColor: [140, 106, 79] }, // Brownish for Khata
-        styles: { fontSize: 9 },
-        columnStyles: {
-            2: { halign: 'right' },
-            3: { halign: 'right' },
-            4: { halign: 'right', fontStyle: 'bold' }
-        }
+        headStyles: { fillColor: [107, 122, 80] }
     });
 
-    const finalY = (doc as any).lastAutoTable.finalY + 15;
-
-    // Final Balance Summary box
-    const totalBalance = transactions.length > 0 ? transactions[0].remainingBalance : 0; // Latest is first in our display logic
-
-    doc.setFillColor(245, 245, 245);
-    doc.rect(margin, finalY, 180, 20, 'F');
-    doc.setFontSize(12);
-    doc.setTextColor(0);
-    doc.text(`Total Outstanding Balance:`, margin + 5, finalY + 12);
-    doc.setFontSize(16);
-    doc.setTextColor(180, 0, 0);
-    doc.text(`PS. ${totalBalance.toLocaleString()}`, 210 - margin - 5, finalY + 12, { align: 'right' });
-
-    // Footer
-    const pageHeight = doc.internal.pageSize.height;
-    doc.setFontSize(10);
-    doc.setTextColor(150, 150, 150);
-    doc.text(billSettings.footer || 'Generated by MyShopBook', 105, pageHeight - 15, { align: 'center' });
-
-    await saveOrSharePDF(doc, `Full_Khata_${customer.name}.pdf`);
+    await saveOrSharePDF(doc, `Khata_${customer.name}.pdf`);
 };
 
 export const generateTransactionsReportPDF = async (
@@ -345,41 +280,26 @@ export const generateTransactionsReportPDF = async (
     const margin = 15;
     let currentY = 20;
 
-    // Header: Shop Name
     doc.setFontSize(22);
-    doc.setTextColor(47, 47, 47);
+    doc.setTextColor(107, 122, 80);
     doc.text(billSettings.shopName || 'Business Ledger', 105, currentY, { align: 'center' });
-    currentY += 10;
-
-    // Title
-    doc.setFontSize(16);
+    currentY += 15;
     doc.text(title, 105, currentY, { align: 'center' });
     currentY += 15;
 
-    // Table
     const tableData = transactions.map((tx) => [
         new Date(tx.date).toLocaleDateString(),
         tx.customerName || 'N/A',
-        tx.type?.toUpperCase() || 'TX',
         tx.totalAmount.toLocaleString(),
-        tx.amountPaid.toLocaleString(),
         tx.remainingBalance.toLocaleString()
     ]);
 
     autoTable(doc, {
         startY: currentY,
-        head: [['Date', 'Customer', 'Type', 'Total', 'Paid', 'Balance']],
+        head: [['Date', 'Customer', 'Amount', 'Balance']],
         body: tableData,
-        theme: 'grid',
-        headStyles: { fillColor: [75, 85, 99] }, // Grayish for general reports
-        styles: { fontSize: 8 },
+        theme: 'grid'
     });
 
-    // Footer
-    const pageHeight = doc.internal.pageSize.height;
-    doc.setFontSize(10);
-    doc.setTextColor(150, 150, 150);
-    doc.text(billSettings.footer || 'Generated by MyShopBook', 105, pageHeight - 15, { align: 'center' });
-
-    await saveOrSharePDF(doc, `Transactions_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+    await saveOrSharePDF(doc, `Report.pdf`);
 };

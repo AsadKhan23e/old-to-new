@@ -80,8 +80,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final currentSettings = ref.watch(appDataProvider).value?.settings;
-    if (currentSettings == null)
+    if (currentSettings == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFFAF8F3),

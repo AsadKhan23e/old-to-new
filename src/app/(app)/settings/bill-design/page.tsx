@@ -9,8 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Trash2, Camera, Upload, Building, Phone, MapPin } from 'lucide-react';
-import { getActiveUser, getUserData, saveUserData, BillDesignSettings, BillDesignContact, AppData } from '@/lib/data-layer';
+import { PlusCircle, Trash2, Camera, Upload, Building, Phone, MapPin, Star, X, Check } from 'lucide-react';
+import { getActiveUser, getUserData, saveUserData, BillDesignSettings, BillDesignContact, AppData, getIsPremium } from '@/lib/data-layer';
+import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 
 const BillPreview = ({ settings }: { settings: BillDesignSettings }) => {
@@ -52,7 +53,7 @@ const BillPreview = ({ settings }: { settings: BillDesignSettings }) => {
                                     <td className="text-right">50</td>
                                     <td className="text-right">100</td>
                                 </tr>
-                                 <tr>
+                                <tr>
                                     <td>Sample Item 2</td>
                                     <td className="text-center">1</td>
                                     <td className="text-right">150</td>
@@ -129,16 +130,33 @@ export default function BillDesignPage() {
     const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
-            if (file.size > 2 * 1024 * 1024) { // 2MB limit
-                toast({ variant: 'destructive', title: 'File too large', description: 'Please upload an image smaller than 2MB.' });
-                return;
-            }
             const reader = new FileReader();
             reader.onloadend = () => {
-                handleInputChange('logo', reader.result as string);
-            };
-            reader.onerror = () => {
-                toast({ variant: 'destructive', title: 'Logo upload failed', description: 'Could not read the file. Try again.' });
+                const img = new (window as any).Image();
+                img.src = reader.result as string;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_SIZE = 800;
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > height) {
+                        if (width > MAX_SIZE) {
+                            height *= MAX_SIZE / width;
+                            width = MAX_SIZE;
+                        }
+                    } else {
+                        if (height > MAX_SIZE) {
+                            width *= MAX_SIZE / height;
+                            height = MAX_SIZE;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx?.drawImage(img, 0, 0, width, height);
+                    const compressed = canvas.toDataURL('image/jpeg', 0.6);
+                    handleInputChange('logo', compressed);
+                };
             };
             reader.readAsDataURL(file);
         }
@@ -152,7 +170,7 @@ export default function BillDesignPage() {
             toast({ variant: 'destructive', title: 'Missing fields', description: 'Please fill all required fields to continue.' });
             return;
         }
-        
+
         const updatedData = {
             ...userData,
             settings: {
@@ -169,99 +187,190 @@ export default function BillDesignPage() {
 
     return (
         <>
-        <div className="container mx-auto p-4 sm:p-6 md:p-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Settings Form */}
-                <div className="space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Bill Design Settings</CardTitle>
-                            <CardDescription>Customize the look and feel of your printed and shared bills.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            <div className="space-y-2">
-                                <Label htmlFor="shop-name">Shop Name</Label>
-                                <Input id="shop-name" value={settings.shopName} onChange={e => handleInputChange('shopName', e.target.value)} />
-                            </div>
-                             <div className="space-y-2">
-                                <Label>Shop Logo</Label>
-                                <div className="flex items-center gap-4">
-                                     <Image
-                                        src={settings.logo || '/placeholder.svg'}
-                                        alt="Shop Logo"
-                                        width={64}
-                                        height={64}
-                                        className="rounded-full bg-muted object-cover h-16 w-16"
-                                        onError={(e) => { e.currentTarget.src = 'https://placehold.co/64x64?text=Logo'; }}
-                                    />
-                                    <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                                        <Upload className="mr-2 h-4 w-4" /> Upload Logo
-                                    </Button>
-                                    <input type="file" ref={fileInputRef} onChange={handleLogoUpload} className="hidden" accept="image/*" />
+            <div className="container mx-auto p-4 sm:p-6 md:p-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Settings Form */}
+                    <div className="space-y-6">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Bill Design Settings</CardTitle>
+                                <CardDescription>Customize the look and feel of your printed and shared bills.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <div className="space-y-2">
+                                    <Label htmlFor="shop-name">Shop Name</Label>
+                                    <Input id="shop-name" value={settings.shopName} onChange={e => handleInputChange('shopName', e.target.value)} />
                                 </div>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="shop-address">Shop Address</Label>
-                                <Textarea id="shop-address" value={settings.address} onChange={e => handleInputChange('address', e.target.value)} />
-                            </div>
-                            <div className="space-y-4">
-                                <Label>Shop Contacts</Label>
-                                {settings.contacts.map((contact) => (
-                                    <div key={contact.id} className="flex items-center gap-2">
-                                        <Input placeholder="Label (e.g., Sales)" value={contact.label} onChange={e => handleContactChange(contact.id, 'label', e.target.value)} />
-                                        <Input placeholder="Phone Number" value={contact.phone} onChange={e => handleContactChange(contact.id, 'phone', e.target.value)} />
-                                        <Button variant="ghost" size="icon" onClick={() => removeContact(contact.id)}>
-                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                <div className="space-y-2">
+                                    <Label>Shop Logo</Label>
+                                    <div className="flex items-center gap-4">
+                                        <Image
+                                            src={settings.logo || '/placeholder.svg'}
+                                            alt="Shop Logo"
+                                            width={64}
+                                            height={64}
+                                            className="rounded-full bg-muted object-cover h-16 w-16"
+                                            onError={(e) => { e.currentTarget.src = 'https://placehold.co/64x64?text=Logo'; }}
+                                        />
+                                        <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                                            <Upload className="mr-2 h-4 w-4" /> Upload Logo
                                         </Button>
+                                        <input type="file" ref={fileInputRef} onChange={handleLogoUpload} className="hidden" accept="image/*" />
                                     </div>
-                                ))}
-                                <Button variant="outline" size="sm" onClick={addContact}>
-                                    <PlusCircle className="mr-2 h-4 w-4" /> Add Contact
-                                </Button>
-                            </div>
-                             <div className="space-y-2">
-                                <Label>Bill Template</Label>
-                                <RadioGroup value={settings.template} onValueChange={(v) => handleInputChange('template', v)} className="flex gap-4">
-                                    <div className="flex items-center space-x-2">
-                                        <RadioGroupItem value="simple" id="simple"/>
-                                        <Label htmlFor="simple">Simple</Label>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="shop-address">Shop Address</Label>
+                                    <Textarea id="shop-address" value={settings.address} onChange={e => handleInputChange('address', e.target.value)} />
+                                </div>
+                                <div className="space-y-4">
+                                    <Label>Shop Contacts</Label>
+                                    {settings.contacts.map((contact) => (
+                                        <div key={contact.id} className="flex items-center gap-2">
+                                            <Input placeholder="Label (e.g., Sales)" value={contact.label} onChange={e => handleContactChange(contact.id, 'label', e.target.value)} />
+                                            <Input placeholder="Phone Number" value={contact.phone} onChange={e => handleContactChange(contact.id, 'phone', e.target.value)} />
+                                            <Button variant="ghost" size="icon" onClick={() => removeContact(contact.id)}>
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                    <Button variant="outline" size="sm" onClick={addContact}>
+                                        <PlusCircle className="mr-2 h-4 w-4" /> Add Contact
+                                    </Button>
+                                </div>
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2">
+                                        <Label className="text-base font-bold">Background Banner</Label>
+                                        {!getIsPremium() && <Badge variant="secondary" className="text-[10px]">PREMIUM</Badge>}
                                     </div>
-                                    <div className="flex items-center space-x-2">
-                                        <RadioGroupItem value="classic" id="classic"/>
-                                        <Label htmlFor="classic">Classic</Label>
+                                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                                        {/* Clear Option */}
+                                        <div
+                                            onClick={() => handleInputChange('backgroundBanner', '')}
+                                            className={`h-12 border-2 rounded-lg flex items-center justify-center cursor-pointer ${!settings.backgroundBanner ? 'border-[#6B7A50] bg-[#6B7A50]/10' : 'border-muted'}`}
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </div>
+                                        {/* Presets */}
+                                        {[
+                                            { id: 'solar', url: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=400&q=80', label: 'Solar' },
+                                            { id: 'modern', url: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=400&q=80', label: 'Office' },
+                                            { id: 'nature', url: 'https://images.unsplash.com/photo-1501854140801-50d01698950b?auto=format&fit=crop&w=400&q=80', label: 'Nature' },
+                                            { id: 'luxury', url: 'https://images.unsplash.com/photo-1550684848-fa1c68444c05?auto=format&fit=crop&w=400&q=80', label: 'Luxury' },
+                                            { id: 'tech', url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=400&q=80', label: 'Tech' },
+                                        ].map((banner) => (
+                                            <div
+                                                key={banner.id}
+                                                onClick={() => {
+                                                    if (!getIsPremium()) {
+                                                        toast({ title: 'Premium Feature', description: 'Background banners are for premium users only.', variant: 'destructive' });
+                                                        return;
+                                                    }
+                                                    handleInputChange('backgroundBanner', banner.url);
+                                                }}
+                                                className={`relative h-12 rounded-lg overflow-hidden border-2 cursor-pointer transition-all ${settings.backgroundBanner === banner.url ? 'border-[#6B7A50] ring-2 ring-[#6B7A50]/20' : 'border-transparent'}`}
+                                            >
+                                                <img src={banner.url} alt={banner.label} className="w-full h-full object-cover" />
+                                                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-all"></div>
+                                            </div>
+                                        ))}
+                                        {/* Custom Upload */}
+                                        <div
+                                            onClick={() => {
+                                                if (!getIsPremium()) {
+                                                    toast({ title: 'Premium Feature', description: 'Custom backgrounds are for premium users only.', variant: 'destructive' });
+                                                    return;
+                                                }
+                                                document.getElementById('bg-upload')?.click();
+                                            }}
+                                            className="h-12 border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer hover:bg-muted"
+                                        >
+                                            <Upload className="h-4 w-4" />
+                                            <input
+                                                id="bg-upload"
+                                                type="file"
+                                                className="hidden"
+                                                accept="image/*"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                        const reader = new FileReader();
+                                                        reader.onloadend = () => {
+                                                            const img = new (window as any).Image();
+                                                            img.src = reader.result as string;
+                                                            img.onload = () => {
+                                                                const canvas = document.createElement('canvas');
+                                                                const MAX_SIZE = 800;
+                                                                let width = img.width;
+                                                                let height = img.height;
+                                                                if (width > height) {
+                                                                    if (width > MAX_SIZE) {
+                                                                        height *= MAX_SIZE / width;
+                                                                        width = MAX_SIZE;
+                                                                    }
+                                                                } else {
+                                                                    if (height > MAX_SIZE) {
+                                                                        width *= MAX_SIZE / height;
+                                                                        height = MAX_SIZE;
+                                                                    }
+                                                                }
+                                                                canvas.width = width;
+                                                                canvas.height = height;
+                                                                const ctx = canvas.getContext('2d');
+                                                                ctx?.drawImage(img, 0, 0, width, height);
+                                                                const compressed = canvas.toDataURL('image/jpeg', 0.6);
+                                                                handleInputChange('backgroundBanner', compressed);
+                                                            };
+                                                        };
+                                                        reader.readAsDataURL(file);
+                                                    }
+                                                }}
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="flex items-center space-x-2">
-                                        <RadioGroupItem value="modern" id="modern"/>
-                                        <Label htmlFor="modern">Modern</Label>
-                                    </div>
-                                </RadioGroup>
-                             </div>
-                             <div className="space-y-2">
-                                <Label htmlFor="shop-footer">Footer Message</Label>
-                                <Textarea id="shop-footer" placeholder="e.g., Thank you for your business!" value={settings.footer} onChange={e => handleInputChange('footer', e.target.value)} />
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
+                                </div>
+                                <div className="space-y-4">
+                                    <Label className="text-base font-bold">Bill Template</Label>
+                                    <RadioGroup value={settings.template} onValueChange={(v) => handleInputChange('template', v)} className="flex gap-4">
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="simple" id="simple" />
+                                            <Label htmlFor="simple">Simple</Label>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="classic" id="classic" />
+                                            <Label htmlFor="classic">Classic</Label>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="modern" id="modern" />
+                                            <Label htmlFor="modern">Modern</Label>
+                                        </div>
+                                    </RadioGroup>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="shop-footer">Footer Message</Label>
+                                    <Textarea id="shop-footer" placeholder="e.g., Thank you for your business!" value={settings.footer} onChange={e => handleInputChange('footer', e.target.value)} />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
 
-                {/* Live Preview */}
-                <div className="space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Live Preview</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                           <BillPreview settings={settings} />
-                        </CardContent>
-                    </Card>
+                    {/* Live Preview */}
+                    <div className="space-y-6">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Live Preview</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <BillPreview settings={settings} />
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm p-4 border-t">
-            <div className="container mx-auto">
-                <Button onClick={handleSave} className="w-full">Save Bill Design</Button>
+            <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm p-4 border-t">
+                <div className="container mx-auto">
+                    <Button onClick={handleSave} className="w-full">Save Bill Design</Button>
+                </div>
             </div>
-        </div>
         </>
     );
 }

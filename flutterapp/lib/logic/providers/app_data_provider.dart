@@ -300,7 +300,7 @@ class AppDataNotifier extends AsyncNotifier<AppData> {
 
     final updatedPayments = [...(tx.additionalPayments ?? []), newPayment];
     final totalPaidSoFar =
-        tx.amountPaid + updatedPayments.fold(0.0, (sum, p) => sum + p.amount);
+        tx.amountPaid + updatedPayments.fold(0.0, (acc, p) => acc + p.amount);
     final newRemaining =
         (tx.type == 'credit' || (tx.items != null && tx.items!.isNotEmpty))
         ? (tx.totalAmount + (tx.previousBalance ?? 0)) - totalPaidSoFar
@@ -391,7 +391,7 @@ class AppDataNotifier extends AsyncNotifier<AppData> {
       final debitAmount = (t.type == 'debit') ? t.totalAmount : 0.0;
       final paymentAmount =
           t.amountPaid +
-          (t.additionalPayments?.fold(0.0, (sum, p) => sum! + p.amount) ?? 0.0);
+          (t.additionalPayments?.fold(0.0, (acc, p) => acc! + p.amount) ?? 0.0);
 
       final double prevBal = runningBalance;
       runningBalance = (prevBal + billAmount) - (debitAmount + paymentAmount);

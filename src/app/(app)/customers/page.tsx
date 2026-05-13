@@ -1158,6 +1158,7 @@ ${billDesignSettings.footer}
                   <BillRenderer
                     bill={tx}
                     settings={billDesignSettings}
+                    customer={customer}
                     runningBalance={index === 0 ? customer.balance : tx.remainingBalance}
                     onViewImage={(img) => setViewImages([img])}
                   />
@@ -1272,7 +1273,7 @@ ${billDesignSettings.footer}
               <DialogTitle>Bill Preview</DialogTitle>
             </DialogHeader>
             <div id={`bill-preview-${showBillPreview.id}`} className="p-4 border rounded-md">
-              <BillRenderer bill={showBillPreview} settings={billDesignSettings} runningBalance={showBillPreview.remainingBalance} />
+              <BillRenderer bill={showBillPreview} settings={billDesignSettings} customer={customer} runningBalance={showBillPreview.remainingBalance} />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowBillPreview(null)}>Close</Button>
@@ -1285,7 +1286,7 @@ ${billDesignSettings.footer}
       <div className="hidden">
         {saleTransactions.map(tx => (
           <div key={`pdf-${tx.id}`} id={`bill-preview-${tx.id}`}>
-            <BillRenderer bill={tx} settings={billDesignSettings} runningBalance={tx.remainingBalance} />
+            <BillRenderer bill={tx} settings={billDesignSettings} customer={customer} runningBalance={tx.remainingBalance} />
           </div>
         ))}
       </div>

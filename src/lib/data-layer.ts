@@ -115,8 +115,9 @@ export type BillDesignSettings = {
   contacts: BillDesignContact[];
   address: string;
   logo: string;
-  template: 'simple' | 'classic' | 'modern';
+  template: 'simple' | 'classic' | 'modern' | 'vibrant' | 'blue-urdu' | 'professional-maroon' | 'colorful' | 'jewelry' | 'mobile-shop' | 'medical' | 'restaurant' | 'fashion' | 'minimal';
   footer: string;
+  backgroundBanner?: string;
 };
 
 export type AppData = {

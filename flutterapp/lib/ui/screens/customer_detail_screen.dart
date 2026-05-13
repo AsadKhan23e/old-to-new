@@ -129,8 +129,9 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
           ),
         );
       },
-      loading: () =>
-          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      loading: () {
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      },
       error: (e, _) => Scaffold(body: Center(child: Text('Error: $e'))),
     );
   }
@@ -774,8 +775,9 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
     double totalSales = 0;
     double totalPaid = 0;
     for (var tx in txs) {
-      if (tx.type != 'debit' && tx.type != 'purchase')
+      if (tx.type != 'debit' && tx.type != 'purchase') {
         totalSales += tx.totalAmount;
+      }
       totalPaid += tx.amountPaid;
       if (tx.additionalPayments != null) {
         for (var p in tx.additionalPayments!) {
