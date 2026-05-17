@@ -10,68 +10,38 @@ import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Trash2, Camera, Upload, Building, Phone, MapPin, Star, X, Check } from 'lucide-react';
-import { getActiveUser, getUserData, saveUserData, BillDesignSettings, BillDesignContact, AppData, getIsPremium } from '@/lib/data-layer';
+import { getActiveUser, getUserData, saveUserData, BillDesignSettings, BillDesignContact, AppData, getIsPremium, Transaction } from '@/lib/data-layer';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
+import { BillRenderer } from '@/components/billing/BillRenderer';
+
+const dummyBill: Transaction = {
+    id: 'preview-123',
+    customerId: 'preview-cust',
+    customerName: 'John Doe',
+    billNumber: 123,
+    date: new Date().toISOString(),
+    items: [
+        { itemId: 'item-1', itemName: 'Sample Item 1', quantity: 2, unitPrice: 50 },
+        { itemId: 'item-2', itemName: 'Sample Item 2', quantity: 1, unitPrice: 150 }
+    ],
+    totalAmount: 250,
+    amountPaid: 0,
+    remainingBalance: 250,
+    paid: false,
+    status: 'open'
+};
 
 const BillPreview = ({ settings }: { settings: BillDesignSettings }) => {
     return (
-        <Card className="shadow-lg">
-            <CardContent className="p-6">
-                <div className={`bill-template-${settings.template}`}>
-                    <header className="text-center mb-4 border-b pb-4">
-                        {settings.logo && (
-                            <Image src={settings.logo} alt="Shop Logo" width={80} height={80} className="mx-auto rounded-full mb-2 object-cover" />
-                        )}
-                        <h1 className="text-2xl font-bold">{settings.shopName || 'Shop Name'}</h1>
-                        {settings.address && <p className="text-sm text-muted-foreground">{settings.address}</p>}
-                        <div className="text-xs text-muted-foreground mt-1">
-                            {settings.contacts.map(c => <span key={c.id} className="inline-block mx-2">{c.label}: {c.phone}</span>)}
-                        </div>
-                    </header>
-                    <div className="my-4 text-sm">
-                        <div className="flex justify-between">
-                            <span>Bill #: 123</span>
-                            <span>Date: {new Date().toLocaleDateString()}</span>
-                        </div>
-                        <p className="mt-1">Customer: John Doe</p>
-                    </div>
-                    <div className="border-y py-4 my-4">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b">
-                                    <th className="text-left pb-2">Item</th>
-                                    <th className="text-center pb-2">Qty</th>
-                                    <th className="text-right pb-2">Price</th>
-                                    <th className="text-right pb-2">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>Sample Item 1</td>
-                                    <td className="text-center">2</td>
-                                    <td className="text-right">50</td>
-                                    <td className="text-right">100</td>
-                                </tr>
-                                <tr>
-                                    <td>Sample Item 2</td>
-                                    <td className="text-center">1</td>
-                                    <td className="text-right">150</td>
-                                    <td className="text-right">150</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div className="text-right font-bold text-lg">
-                        <p>Total: 250</p>
-                    </div>
-                    {settings.footer && (
-                        <footer className="text-center text-xs text-muted-foreground mt-6 pt-4 border-t">
-                            <p>{settings.footer}</p>
-                        </footer>
-                    )}
-                </div>
-            </CardContent>
+        <Card className="shadow-lg overflow-hidden">
+            <div className="p-0 border rounded-md overflow-hidden bg-white">
+                <BillRenderer
+                    bill={dummyBill}
+                    settings={settings}
+                    customer={{ id: 'c', name: 'John Doe', phone: '03325518648', dateAdded: '' }}
+                />
+            </div>
         </Card>
     );
 };
@@ -103,6 +73,18 @@ export default function BillDesignPage() {
     }, [router]);
 
     const handleInputChange = (field: keyof BillDesignSettings, value: any) => {
+        if (field === 'backgroundBanner' && value && value.startsWith('data:image')) {
+            setSettings(prev => {
+                const history = prev.recentBanners || [];
+                // Only add if not already the first one
+                if (history[0] !== value) {
+                    const newHistory = [value, ...history.filter(v => v !== value)].slice(0, 5);
+                    return { ...prev, [field]: value, recentBanners: newHistory };
+                }
+                return { ...prev, [field]: value };
+            });
+            return;
+        }
         setSettings(prev => ({ ...prev, [field]: value }));
     };
 
@@ -204,16 +186,26 @@ export default function BillDesignPage() {
                                 <div className="space-y-2">
                                     <Label>Shop Logo</Label>
                                     <div className="flex items-center gap-4">
-                                        <Image
-                                            src={settings.logo || '/placeholder.svg'}
-                                            alt="Shop Logo"
-                                            width={64}
-                                            height={64}
-                                            className="rounded-full bg-muted object-cover h-16 w-16"
-                                            onError={(e) => { e.currentTarget.src = 'https://placehold.co/64x64?text=Logo'; }}
-                                        />
+                                        <div className="relative group">
+                                            <Image
+                                                src={settings.logo || '/placeholder.svg'}
+                                                alt="Shop Logo"
+                                                width={64}
+                                                height={64}
+                                                className="rounded-full bg-muted object-cover h-16 w-16"
+                                                onError={(e) => { e.currentTarget.src = 'https://placehold.co/64x64?text=Logo'; }}
+                                            />
+                                            {settings.logo && (
+                                                <button
+                                                    onClick={() => handleInputChange('logo', '')}
+                                                    className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                </button>
+                                            )}
+                                        </div>
                                         <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                                            <Upload className="mr-2 h-4 w-4" /> Upload Logo
+                                            <Upload className="mr-2 h-4 w-4" /> {settings.logo ? 'Change Logo' : 'Upload Logo'}
                                         </Button>
                                         <input type="file" ref={fileInputRef} onChange={handleLogoUpload} className="hidden" accept="image/*" />
                                     </div>
@@ -273,6 +265,17 @@ export default function BillDesignPage() {
                                                 <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-all"></div>
                                             </div>
                                         ))}
+
+                                        {/* Recent Uploads */}
+                                        {settings.recentBanners && settings.recentBanners.length > 0 && settings.recentBanners.map((url, idx) => (
+                                            <div
+                                                key={`recent-${idx}`}
+                                                onClick={() => handleInputChange('backgroundBanner', url)}
+                                                className={`relative h-12 rounded-lg overflow-hidden border-2 cursor-pointer transition-all ${settings.backgroundBanner === url ? 'border-[#6B7A50] ring-2 ring-[#6B7A50]/20' : 'border-transparent'}`}
+                                            >
+                                                <img src={url} alt={`Recent ${idx}`} className="w-full h-full object-cover" />
+                                            </div>
+                                        ))}
                                         {/* Custom Upload */}
                                         <div
                                             onClick={() => {
@@ -327,6 +330,64 @@ export default function BillDesignPage() {
                                             />
                                         </div>
                                     </div>
+
+                                    {settings.backgroundBanner && getIsPremium() && (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 bg-muted/30 p-4 rounded-lg border">
+                                            <div className="space-y-2 flex flex-col justify-center">
+                                                <div className="flex justify-between items-center">
+                                                    <Label className="text-xs">Opacity</Label>
+                                                    <span className="text-xs text-muted-foreground">{Math.round((settings.backgroundOpacity ?? 0.15) * 100)}%</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min="0.02" max="1" step="0.01"
+                                                    value={settings.backgroundOpacity ?? 0.15}
+                                                    onChange={e => handleInputChange('backgroundOpacity', parseFloat(e.target.value))}
+                                                    className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer"
+                                                />
+                                            </div>
+                                            <div className="space-y-2 flex flex-col justify-center">
+                                                <div className="flex justify-between items-center">
+                                                    <Label className="text-xs">Scale</Label>
+                                                    <span className="text-xs text-muted-foreground">{settings.backgroundScale ?? 1}x</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min="0.1" max="3" step="0.1"
+                                                    value={settings.backgroundScale ?? 1}
+                                                    onChange={e => handleInputChange('backgroundScale', parseFloat(e.target.value))}
+                                                    className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-xs">Size</Label>
+                                                <select
+                                                    value={settings.backgroundSize || 'cover'}
+                                                    onChange={e => handleInputChange('backgroundSize', e.target.value)}
+                                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                                >
+                                                    <option value="cover">Cover</option>
+                                                    <option value="contain">Contain</option>
+                                                    <option value="auto">Original</option>
+                                                    <option value="100% 100%">Stretch</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-xs">Position</Label>
+                                                <select
+                                                    value={settings.backgroundPosition || 'center'}
+                                                    onChange={e => handleInputChange('backgroundPosition', e.target.value)}
+                                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                                >
+                                                    <option value="center">Center</option>
+                                                    <option value="top">Top</option>
+                                                    <option value="bottom">Bottom</option>
+                                                    <option value="left">Left</option>
+                                                    <option value="right">Right</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="space-y-4">
                                     <Label className="text-base font-bold">Bill Template</Label>

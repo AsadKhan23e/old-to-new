@@ -1259,23 +1259,25 @@ ${billDesignSettings.footer}
       {/* Bill Preview Modal for PDF Generation */}
       {showBillPreview && (
         <Dialog open={!!showBillPreview} onOpenChange={() => setShowBillPreview(null)}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
             <Button
               onClick={() => setShowBillPreview(null)}
               variant="ghost"
               size="icon"
-              className="absolute top-2 right-2 rounded-full h-8 w-8 z-10 bg-background/50 hover:bg-background"
+              className="absolute top-2 right-2 rounded-full h-8 w-8 z-[60] bg-background/50 hover:bg-background"
             >
               <X className="h-5 w-5" />
               <span className="sr-only">Close</span>
             </Button>
-            <DialogHeader>
+            <DialogHeader className="p-4 border-b shrink-0">
               <DialogTitle>Bill Preview</DialogTitle>
             </DialogHeader>
-            <div id={`bill-preview-${showBillPreview.id}`} className="p-4 border rounded-md">
-              <BillRenderer bill={showBillPreview} settings={billDesignSettings} customer={customer} runningBalance={showBillPreview.remainingBalance} />
+            <div id={`bill-preview-${showBillPreview.id}`} className="p-4 flex-1 overflow-y-auto">
+              <div className="border rounded-md relative z-0">
+                <BillRenderer bill={showBillPreview} settings={billDesignSettings} customer={customer} runningBalance={showBillPreview.remainingBalance} />
+              </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="p-4 border-t shrink-0">
               <Button variant="outline" onClick={() => setShowBillPreview(null)}>Close</Button>
             </DialogFooter>
           </DialogContent>

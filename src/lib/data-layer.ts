@@ -118,6 +118,12 @@ export type BillDesignSettings = {
   template: 'simple' | 'classic' | 'modern' | 'vibrant' | 'blue-urdu' | 'professional-maroon' | 'colorful' | 'jewelry' | 'mobile-shop' | 'medical' | 'restaurant' | 'fashion' | 'minimal';
   footer: string;
   backgroundBanner?: string;
+  backgroundOpacity?: number;
+  backgroundSize?: string;
+  backgroundPosition?: string;
+  backgroundRepeat?: string;
+  backgroundScale?: number;
+  recentBanners?: string[];
 };
 
 export type AppData = {
@@ -148,7 +154,12 @@ const defaultData: AppData = {
       address: 'Main Street, Business District',
       logo: '',
       template: 'classic',
-      footer: 'Account Managed by CashbookPro'
+      footer: 'Account Managed by CashbookPro',
+      backgroundOpacity: 0.15,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
+      backgroundScale: 1
     }
   },
 };
