@@ -59,6 +59,7 @@ type ItemDetailsState = {
   purchasePrice: string;
   notes: string;
   picture: string | null;
+  itemName: string;
 } | null;
 
 
@@ -864,6 +865,7 @@ export default function ItemsPage() {
       purchasePrice: item.purchasePrice.toString(),
       notes: item.notes || '',
       picture: item.picture || null,
+      itemName: item.itemName,
     });
   };
 
@@ -883,6 +885,7 @@ export default function ItemsPage() {
     const itemNameToUpdate = itemDetails.item.itemName.toLowerCase();
     data.items.forEach(item => {
       if (item.itemName.toLowerCase() === itemNameToUpdate) {
+        item.itemName = itemDetails.itemName;
         item.sellingPrice = newSellingPrice;
         item.purchasePrice = newPurchasePrice; // This might need more granular control if prices differ per batch
         item.picture = itemDetails.picture; // Sync picture (could be new photo or null)
@@ -895,6 +898,17 @@ export default function ItemsPage() {
     loadData();
     toast({ title: t('itemUpdated') });
     setItemDetails(null);
+  };
+
+  const handleDeleteItem = async () => {
+    if (!activeUser || !itemDetails) return;
+    const nameToDelete = itemDetails.item.itemName.toLowerCase();
+    const data = getUserData(activeUser.email);
+    data.items = data.items.filter(i => i.itemName.toLowerCase() !== nameToDelete);
+    await saveUserData(activeUser.email, data);
+    loadData();
+    setItemDetails(null);
+    toast({ title: t('itemDeleted') });
   };
 
 
@@ -1270,6 +1284,10 @@ export default function ItemsPage() {
                 </div>
               </div>
               <div className="space-y-2">
+                <Label htmlFor="itemName">Item Name</Label>
+                <Input id="itemName" value={itemDetails.itemName} onChange={e => setItemDetails(prev => prev ? { ...prev, itemName: e.target.value } : null)} />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="sellingPrice">Selling Price</Label>
                 <Input id="sellingPrice" type="number" value={itemDetails.sellingPrice} onChange={e => setItemDetails(prev => prev ? { ...prev, sellingPrice: e.target.value } : null)} />
               </div>
@@ -1283,9 +1301,34 @@ export default function ItemsPage() {
                 <Textarea id="notes" value={itemDetails.notes} onChange={e => setItemDetails(prev => prev ? { ...prev, notes: e.target.value } : null)} />
               </div>
             </div>
-            <DialogFooter>
-              <DialogClose asChild><Button variant="outline">Close</Button></DialogClose>
-              <Button onClick={handleSaveItemDetails}>Save Changes</Button>
+            <DialogFooter className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1 w-full sm:w-auto">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" className="w-full sm:w-auto">
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete Item
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Item Group?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete all stock entries for "{itemDetails.item.itemName}"? This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteItem} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <DialogClose asChild className="flex-1 sm:flex-none">
+                  <Button variant="outline" className="w-full">Close</Button>
+                </DialogClose>
+                <Button onClick={handleSaveItemDetails} className="flex-1 sm:flex-none">Save Changes</Button>
+              </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>
