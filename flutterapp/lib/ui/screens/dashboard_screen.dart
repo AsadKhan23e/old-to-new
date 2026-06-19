@@ -372,13 +372,17 @@ class DashboardScreen extends ConsumerWidget {
     double jama = 0;
     double udhar = 0;
 
-    final customers = data.customers.where((c) => !c.isSupplier).toList();
-    final customerIds = customers.map((c) => c.id).toSet();
+    // Filter transactions for customers (non-suppliers)
+    final customerIds = data.customers
+        .where((c) => !c.isSupplier)
+        .map((c) => c.id)
+        .toSet();
     final customerTxs = data.transactions
         .where((tx) => customerIds.contains(tx.customerId))
         .toList();
 
     for (var tx in customerTxs) {
+      // Jama (Money Received)
       if (tx.type == 'debit') {
         jama += tx.totalAmount;
       } else {
@@ -391,15 +395,17 @@ class DashboardScreen extends ConsumerWidget {
       }
     }
 
-    for (var customer in customers) {
-      final txs =
-          data.transactions.where((t) => t.customerId == customer.id).toList()
-            ..sort((a, b) => b.date.compareTo(a.date));
-
+    // Calculate Udhar correctly: sum of all customer balances
+    for (var customer in data.customers.where((c) => !c.isSupplier)) {
+      final txs = data.transactions
+          .where((t) => t.customerId == customer.id)
+          .toList();
       if (txs.isNotEmpty) {
-        final latest = txs.first;
-        if (latest.remainingBalance > 0) {
-          udhar += latest.remainingBalance;
+        // Sort by date descending (latest first)
+        final sortedTxs = [...txs]..sort((a, b) => b.date.compareTo(a.date));
+        final latestTx = sortedTxs.first;
+        if (latestTx.remainingBalance > 0) {
+          udhar += latestTx.remainingBalance;
         }
       }
     }

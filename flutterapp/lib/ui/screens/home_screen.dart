@@ -25,7 +25,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         title: const Text(
           'ShopBook Ledger',
           style: TextStyle(
-            
             fontWeight: FontWeight.bold,
             color: Color(0xFF2F2F2F),
           ),
@@ -84,7 +83,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     'No customers found',
                     style: TextStyle(
                       color: Colors.grey,
-                      
+
                       fontStyle: FontStyle.italic,
                     ),
                   ),
@@ -239,18 +238,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   double _calculateBalance(String customerId, List<Transaction> transactions) {
     final txs = transactions.where((t) => t.customerId == customerId).toList();
     if (txs.isEmpty) return 0;
-    txs.sort((a, b) => b.date.compareTo(a.date));
-    return txs.first.remainingBalance;
+
+    // Sort by date ascending to ensure we find the latest by position or by sorting descending
+    final sortedTxs = [...txs]..sort((a, b) => b.date.compareTo(a.date));
+    return sortedTxs.first.remainingBalance;
   }
 
   void _deleteCustomer(BuildContext context, Customer customer) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text(
-          'Delete Customer',
-          style: TextStyle(),
-        ),
+        title: const Text('Delete Customer', style: TextStyle()),
         content: Text(
           'Are you sure you want to delete ${customer.name}? This will not delete transactions, but the customer will be removed from this list.',
         ),
@@ -284,7 +282,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text(
           'Edit Customer',
-          style: TextStyle( fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
         content: SingleChildScrollView(
           child: Column(
@@ -382,7 +380,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text(
           'Add New Customer',
-          style: TextStyle( fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
         content: SingleChildScrollView(
           child: Column(

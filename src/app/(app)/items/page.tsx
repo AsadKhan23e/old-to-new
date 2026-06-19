@@ -1547,9 +1547,9 @@ export default function ItemsPage() {
           <DialogHeader>
             <DialogTitle>{t('createSale')}</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-6 pr-2">
             {/* Left: Item Selection */}
-            <div className="flex flex-col gap-4 overflow-y-auto pr-2">
+            <div className="flex flex-col gap-4">
               <h3 className="font-semibold">{t('availableItems')}</h3>
               <div className="space-y-2">
                 {availableItemsForSale.map(item => (
@@ -1641,7 +1641,7 @@ export default function ItemsPage() {
             </div>
 
             {/* Right: Sale Details */}
-            <div className="flex flex-col gap-4 overflow-y-auto pr-2">
+            <div className="flex flex-col gap-4">
               <h3 className="font-semibold">{t('saleDetails')}</h3>
               <div className="space-y-2">
                 <div className="flex justify-between items-center">

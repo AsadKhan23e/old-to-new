@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "367068109515",
+    "firebase_url": "https://myshopbook1-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "myshopbook1",
+    "storage_bucket": "myshopbook1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:367068109515:android:a34ee10d00f60361dad94e",
+        "android_client_info": {
+          "package_name": "com.MyShopBook.com"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "367068109515-a7nsafaelio2jfk9lfe1hhp59g3roerc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBomlIqv9ccMDpLZ95EfTAVeotW47PZx9A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "367068109515-a7nsafaelio2jfk9lfe1hhp59g3roerc.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

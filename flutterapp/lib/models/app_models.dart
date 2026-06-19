@@ -382,8 +382,15 @@ class BillDesignSettings {
   final List<BillDesignContact> contacts;
   final String address;
   final String logo;
-  final String template; // 'simple', 'classic', 'modern'
+  final String template; // 'simple', 'classic', 'modern', 'vibrant', etc.
   final String footer;
+  final String? backgroundBanner;
+  final double? backgroundOpacity;
+  final String? backgroundSize;
+  final String? backgroundPosition;
+  final String? backgroundRepeat;
+  final double? backgroundScale;
+  final List<String>? recentBanners;
 
   BillDesignSettings({
     required this.shopName,
@@ -392,6 +399,13 @@ class BillDesignSettings {
     required this.logo,
     required this.template,
     required this.footer,
+    this.backgroundBanner,
+    this.backgroundOpacity,
+    this.backgroundSize,
+    this.backgroundPosition,
+    this.backgroundRepeat,
+    this.backgroundScale,
+    this.recentBanners,
   });
 
   Map<String, dynamic> toMap() => {
@@ -401,6 +415,13 @@ class BillDesignSettings {
     'logo': logo,
     'template': template,
     'footer': footer,
+    'backgroundBanner': backgroundBanner,
+    'backgroundOpacity': backgroundOpacity,
+    'backgroundSize': backgroundSize,
+    'backgroundPosition': backgroundPosition,
+    'backgroundRepeat': backgroundRepeat,
+    'backgroundScale': backgroundScale,
+    'recentBanners': recentBanners,
   };
 
   factory BillDesignSettings.fromMap(Map<String, dynamic> map) =>
@@ -415,6 +436,15 @@ class BillDesignSettings {
         logo: map['logo'] ?? '',
         template: map['template'] ?? 'classic',
         footer: map['footer'] ?? '',
+        backgroundBanner: map['backgroundBanner'],
+        backgroundOpacity: (map['backgroundOpacity'] as num?)?.toDouble(),
+        backgroundSize: map['backgroundSize'],
+        backgroundPosition: map['backgroundPosition'],
+        backgroundRepeat: map['backgroundRepeat'],
+        backgroundScale: (map['backgroundScale'] as num?)?.toDouble(),
+        recentBanners: map['recentBanners'] != null
+            ? List<String>.from(map['recentBanners'])
+            : null,
       );
 
   BillDesignSettings copyWith({
@@ -424,6 +454,13 @@ class BillDesignSettings {
     String? logo,
     String? template,
     String? footer,
+    String? backgroundBanner,
+    double? backgroundOpacity,
+    String? backgroundSize,
+    String? backgroundPosition,
+    String? backgroundRepeat,
+    double? backgroundScale,
+    List<String>? recentBanners,
   }) => BillDesignSettings(
     shopName: shopName ?? this.shopName,
     contacts: contacts ?? this.contacts,
@@ -431,6 +468,13 @@ class BillDesignSettings {
     logo: logo ?? this.logo,
     template: template ?? this.template,
     footer: footer ?? this.footer,
+    backgroundBanner: backgroundBanner ?? this.backgroundBanner,
+    backgroundOpacity: backgroundOpacity ?? this.backgroundOpacity,
+    backgroundSize: backgroundSize ?? this.backgroundSize,
+    backgroundPosition: backgroundPosition ?? this.backgroundPosition,
+    backgroundRepeat: backgroundRepeat ?? this.backgroundRepeat,
+    backgroundScale: backgroundScale ?? this.backgroundScale,
+    recentBanners: recentBanners ?? this.recentBanners,
   );
 }
 

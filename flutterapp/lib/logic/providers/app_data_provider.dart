@@ -61,11 +61,49 @@ class AppDataNotifier extends AsyncNotifier<AppData> {
   Future<void> _fetchFromFirestore(String email) async {
     try {
       final docSnap = await _db.collection('users').doc(email).get();
-      if (docSnap.exists && docSnap.data() != null) {
-        final data = AppData.fromMap(docSnap.data()!);
-        state = AsyncData(data);
-        await _persistence.save(email, data.toMap());
+      if (!docSnap.exists) {
+        // Create new user doc
+        await _db.collection('users').doc(email).set({
+          'email': email,
+          'createdAt': DateTime.now().toIso8601String(),
+          'isPremium': false,
+        });
+        return;
       }
+
+      final firestoreData = docSnap.data()!;
+
+      // Load sub-collections
+      final results = await Future.wait([
+        _db.collection('users').doc(email).collection('customers').get(),
+        _db.collection('users').doc(email).collection('items').get(),
+        _db.collection('users').doc(email).collection('transactions').get(),
+        _db.collection('users').doc(email).collection('reminders').get(),
+      ]);
+
+      final customers = results[0].docs
+          .map((d) => Customer.fromMap(d.data()))
+          .toList();
+      final items = results[1].docs.map((d) => Item.fromMap(d.data())).toList();
+      final transactions = results[2].docs
+          .map((d) => Transaction.fromMap(d.data()))
+          .toList();
+      final reminders = results[3].docs
+          .map((d) => Reminder.fromMap(d.data()))
+          .toList();
+
+      final settings = AppSettings.fromMap(firestoreData['settings'] ?? {});
+
+      final data = AppData(
+        customers: customers,
+        items: items,
+        transactions: transactions,
+        reminders: reminders,
+        settings: settings,
+      );
+
+      state = AsyncData(data);
+      await _persistence.save(email, data.toMap(), markUnsynced: false);
     } catch (e) {
       debugPrint('AppDataNotifier: Fetch Error: $e');
     }
@@ -85,10 +123,54 @@ class AppDataNotifier extends AsyncNotifier<AppData> {
     if (connectivity.contains(ConnectivityResult.none)) return;
 
     try {
-      await _db
-          .collection('users')
-          .doc(email)
-          .set(data.toMap(), SetOptions(merge: true));
+      final batch = _db.batch();
+      final userRef = _db.collection('users').doc(email);
+
+      // 1. Sync Settings to Root Doc
+      batch.set(userRef, {
+        'settings': data.settings.toMap(),
+      }, SetOptions(merge: true));
+
+      // 2. Sync Collections (Limiting to most recent/important to stay within batch limits if needed,
+      // but usually batches handle up to 500 operations).
+
+      // For a truly scalable solution, we should only sync changed items.
+      // For now, mirroring the "triggerFirestoreSync" logic with batches.
+
+      for (var c in data.customers) {
+        batch.set(
+          userRef.collection('customers').doc(c.id),
+          c.toMap(),
+          SetOptions(merge: true),
+        );
+      }
+      for (var i in data.items) {
+        batch.set(
+          userRef.collection('items').doc(i.id),
+          i.toMap(),
+          SetOptions(merge: true),
+        );
+      }
+      // Sync last 200 transactions to keep it fast similar to web
+      final recentTxs = data.transactions.length > 200
+          ? data.transactions.sublist(data.transactions.length - 200)
+          : data.transactions;
+      for (var t in recentTxs) {
+        batch.set(
+          userRef.collection('transactions').doc(t.id),
+          t.toMap(),
+          SetOptions(merge: true),
+        );
+      }
+      for (var r in data.reminders) {
+        batch.set(
+          userRef.collection('reminders').doc(r.id),
+          r.toMap(),
+          SetOptions(merge: true),
+        );
+      }
+
+      await batch.commit();
       await _persistence.setSynced(email);
     } catch (e) {
       debugPrint('AppDataNotifier: Sync Failed: $e');
@@ -298,7 +380,10 @@ class AppDataNotifier extends AsyncNotifier<AppData> {
       notes: notes,
     );
 
-    final updatedPayments = [...(tx.additionalPayments ?? []), newPayment];
+    final updatedPayments = List<Payment>.from([
+      ...(tx.additionalPayments ?? []),
+      newPayment,
+    ]);
     final totalPaidSoFar =
         tx.amountPaid + updatedPayments.fold(0.0, (acc, p) => acc + p.amount);
     final newRemaining =

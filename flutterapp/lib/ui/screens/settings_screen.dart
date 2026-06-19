@@ -6,6 +6,8 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
 import '../../logic/providers/auth_provider.dart';
+import 'bill_design_screen.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -116,29 +118,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 32),
                 _buildTextField(
                   _nameCtrl,
-                  'Shop / Business Name',
-                  Icons.store_mall_directory_outlined,
+                  'Business Manager Name',
+                  Icons.person_outline,
                 ),
                 const SizedBox(height: 16),
                 _buildTextField(
                   _phoneCtrl,
-                  'Business Phone',
+                  'Personal Phone',
                   Icons.phone_android,
                 ),
-                const SizedBox(height: 16),
-                _buildTextField(
-                  _addressCtrl,
-                  'Business Address',
-                  Icons.location_on_outlined,
-                  lines: 2,
-                ),
-                const SizedBox(height: 16),
-                const SizedBox(height: 16),
-                _buildTextField(
-                  _footerCtrl,
-                  'Custom Bill Footer Message',
-                  Icons.message_outlined,
-                  lines: 2,
+                const SizedBox(height: 32),
+
+                _buildNavigationCard(
+                  'Bill & Invoice Design',
+                  'Customize your shop logo, banner, and template.',
+                  Icons.receipt_long_outlined,
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const BillDesignScreen()),
+                  ),
                 ),
                 const SizedBox(height: 24),
 
@@ -277,6 +275,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           style: TextStyle(color: Colors.grey, fontSize: 12),
         ),
       ],
+    );
+  }
+
+  Widget _buildNavigationCard(
+    String title,
+    String subtitle,
+    IconData icon,
+    VoidCallback onTap,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: ListTile(
+        onTap: onTap,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF8C6A4F).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: const Color(0xFF8C6A4F)),
+        ),
+        title: Text(
+          title,
+          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+      ),
     );
   }
 
