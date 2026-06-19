@@ -150,9 +150,7 @@ export const BillRenderer = ({ bill, settings, customer, runningBalance, onViewI
                 </div>
 
                 {/* Account Managed by Footer */}
-                <div className="mt-12 pt-4 border-t text-center">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Account Managed by CashbookPro</p>
-                </div>
+
 
                 {settings.footer && (
                     <div className="mt-2 text-center text-xs text-muted-foreground italic">

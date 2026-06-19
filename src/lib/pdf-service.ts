@@ -279,8 +279,7 @@ export const generateSingleBillPDF = async (
     doc.setTextColor(150);
     doc.setFont("helvetica", "normal");
 
-    // Central Footer
-    doc.text("Account Managed by CashbookPro", 105, pageHeight - 15, { align: 'center' });
+    // Central Footer removed as per user request
     if (billSettings.footer) {
         doc.text(billSettings.footer, 105, pageHeight - 10, { align: 'center' });
     }

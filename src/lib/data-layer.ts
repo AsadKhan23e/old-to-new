@@ -154,7 +154,7 @@ const defaultData: AppData = {
       address: 'Main Street, Business District',
       logo: '',
       template: 'classic',
-      footer: 'Account Managed by CashbookPro',
+      footer: '',
       backgroundOpacity: 0.15,
       backgroundSize: 'cover',
       backgroundPosition: 'center',
