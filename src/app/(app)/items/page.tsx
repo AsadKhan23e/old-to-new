@@ -110,6 +110,7 @@ export default function ItemsPage() {
   const [customItemNotes, setCustomItemNotes] = useState('');
   const [customItemPicture, setCustomItemPicture] = useState<string | null>(null);
   const [saleNotes, setSaleNotes] = useState('');
+  const [manualPreviousBalance, setManualPreviousBalance] = useState('0');
   const [viewImage, setViewImage] = useState<string | null>(null);
   const [showBillPreview, setShowBillPreview] = useState<Transaction | null>(null);
   const [billDesignSettings, setBillDesignSettings] = useState<BillDesignSettings | null>(null);
@@ -610,7 +611,7 @@ export default function ItemsPage() {
     setCustomItemPicture(null);
   };
 
-  const previousBalance = useMemo(() => {
+  const calculatedPreviousBalance = useMemo(() => {
     if (!saleCustomerId || !activeUser) return 0;
 
     const data = getUserData(activeUser.email);
@@ -631,7 +632,13 @@ export default function ItemsPage() {
     }, 0);
 
     return totalBalance;
-  }, [saleCustomerId, activeUser, transactions, customers]); // dependency on customers to recalc on new customer add
+  }, [saleCustomerId, activeUser, transactions, customers]);
+
+  useEffect(() => {
+    setManualPreviousBalance(calculatedPreviousBalance.toString());
+  }, [saleCustomerId, calculatedPreviousBalance]);
+
+  const previousBalance = parseFloat(manualPreviousBalance) || 0;
 
   const { newBillAmount, grandTotal, remainingBalance } = useMemo(() => {
     const newBill = selectedItemsForSale.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
@@ -1661,6 +1668,16 @@ export default function ItemsPage() {
                 <Label htmlFor="saledate">{t('date')}</Label>
                 <Input id="saledate" type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} required />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="previousBalanceManual">{t('previousBalance')}</Label>
+                <Input
+                  id="previousBalanceManual"
+                  type="number"
+                  value={manualPreviousBalance}
+                  onChange={(e) => setManualPreviousBalance(e.target.value)}
+                  placeholder="0"
+                />
+              </div>
 
               {selectedItemsForSale.length > 0 ? (
                 <div className="space-y-4 border-t pt-4">
@@ -1821,8 +1838,8 @@ export default function ItemsPage() {
                     <span>{t('total')}</span>
                     <span>{newBillAmount.toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span>{t('previousBalance')}</span>
+                  <div className="flex justify-between items-center text-sm font-medium text-muted-foreground">
+                    <span>{t('previousBalance')} (Adjusted)</span>
                     <span>{previousBalance.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center font-bold text-lg">
