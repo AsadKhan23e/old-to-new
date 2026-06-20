@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { CapacitorHandler } from "@/components/capacitor-handler";
 import { DataInitializer } from "@/components/data-initializer";
 import { AdManager } from "@/components/ads/ad-manager";
+import { AppUpdateChecker } from "@/components/app-update-checker";
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -33,6 +34,7 @@ export default function RootLayout({
           <CapacitorHandler />
           <DataInitializer />
           <AdManager />
+          <AppUpdateChecker />
           {children}
           <Toaster />
         </ThemeProvider>

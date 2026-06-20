@@ -67,6 +67,7 @@ export interface AppUpdate {
     message: string;
     apkUrl: string;
     isActive: boolean;
+    isForceUpdate?: boolean;
     createdAt: string;
     createdBy: string;
 }

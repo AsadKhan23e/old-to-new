@@ -53,7 +53,7 @@ export default function AdminPage() {
     const [paySettings, setPaySettings] = useState<PaymentSettings>({ jazzcash: '', easypaisa: '', bank: '', price1Month: '500', price4Months: '1800', price6Months: '2500', price1Year: '4500' });
     const [announcement, setAnnouncement] = useState<AdminAnnouncement | null>(null);
     const [announcementText, setAnnouncementText] = useState('');
-    const [appUpdate, setAppUpdate] = useState<AppUpdate>({ version: '', message: '', apkUrl: '', isActive: false, createdAt: '', createdBy: '' });
+    const [appUpdate, setAppUpdate] = useState<AppUpdate>({ version: '', message: '', apkUrl: '', isActive: false, isForceUpdate: false, createdAt: '', createdBy: '' });
     const [savingSettings, setSavingSettings] = useState(false);
     // User Inspection
     const [inspectingUser, setInspectingUser] = useState<string | null>(null);
@@ -578,6 +578,20 @@ export default function AdminPage() {
                                     />
                                 </div>
                             </div>
+
+                            <div className="flex items-center gap-2 bg-gray-800/50 p-3 rounded-xl border border-gray-700">
+                                <input
+                                    type="checkbox"
+                                    id="forceUpdate"
+                                    checked={appUpdate.isForceUpdate || false}
+                                    onChange={(e) => setAppUpdate(p => ({ ...p, isForceUpdate: e.target.checked }))}
+                                    className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500"
+                                />
+                                <label htmlFor="forceUpdate" className="text-xs font-medium text-purple-300 cursor-pointer">
+                                    Force Update (Users cannot close the notification until updated)
+                                </label>
+                            </div>
+
                             <div>
                                 <label className="text-xs text-gray-400 block mb-1">Update Message</label>
                                 <textarea
@@ -588,6 +602,12 @@ export default function AdminPage() {
                                     className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 resize-none"
                                 />
                             </div>
+
+                            <div className="bg-purple-900/20 border border-purple-500/20 p-3 rounded-lg text-[10px] text-purple-200">
+                                <p className="font-bold mb-1">💡 Professional Tip:</p>
+                                <p>Upload your APK to <strong>GitHub Releases</strong> and paste the download link above. It's free and professional.</p>
+                            </div>
+
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => handleSaveAppUpdate(true)}
@@ -609,214 +629,212 @@ export default function AdminPage() {
                         </div>
                     </div>
                 )}
-                {/* Inspector Modal */}
-                {showInspector && inspectingData && (
-                    <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-                        <div className="bg-gray-900 border border-gray-800 rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
-                            <div className="p-6 border-b border-gray-800 flex items-center justify-between sticky top-0 bg-gray-900 z-10 font-sans">
-                                <div>
-                                    <h2 className="text-xl font-bold flex items-center gap-2">
-                                        <Eye className="w-5 h-5 text-blue-400" /> Inspecting User Data
-                                    </h2>
-                                    <p className="text-sm text-gray-400">{inspectingUser}</p>
-                                </div>
-                                <button onClick={() => setShowInspector(false)} className="p-2 hover:bg-gray-800 rounded-full transition-colors">
-                                    <XCircle className="w-6 h-6 text-gray-400" />
-                                </button>
+            </div>
+
+            {/* Inspector Modal */}
+            {showInspector && inspectingData && (
+                <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+                    <div className="bg-gray-900 border border-gray-800 rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+                        <div className="p-6 border-b border-gray-800 flex items-center justify-between sticky top-0 bg-gray-900 z-10 font-sans">
+                            <div>
+                                <h2 className="text-xl font-bold flex items-center gap-2">
+                                    <Eye className="w-5 h-5 text-blue-400" /> Inspecting User Data
+                                </h2>
+                                <p className="text-sm text-gray-400">{inspectingUser}</p>
+                            </div>
+                            <button onClick={() => setShowInspector(false)} className="p-2 hover:bg-gray-800 rounded-full transition-colors">
+                                <XCircle className="w-6 h-6 text-gray-400" />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-6 space-y-8 font-sans">
+                            {/* Stats Summary */}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+                                {[
+                                    { label: 'Customers', count: (inspectingData.customers?.filter((c: any) => !c.isSupplier).length) || 0, color: 'text-blue-400', id: 'sec-customers' },
+                                    { label: 'Suppliers', count: (inspectingData.customers?.filter((c: any) => c.isSupplier).length) || 0, color: 'text-pink-400', id: 'sec-suppliers' },
+                                    { label: 'Items', count: inspectingData.items?.length || 0, color: 'text-green-400', id: 'sec-inventory' },
+                                    { label: 'Bills', count: inspectingData.transactions?.length || 0, color: 'text-purple-400', id: 'sec-bills' },
+                                    { label: 'Dues', count: inspectingData.reminders?.length || 0, color: 'text-orange-400', id: 'sec-dues' },
+                                ].map(s => (
+                                    <button
+                                        key={s.label}
+                                        onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth' })}
+                                        className="bg-gray-800/50 rounded-2xl p-3 sm:p-4 border border-gray-700/50 hover:bg-gray-800 hover:border-gray-600 transition-all text-left"
+                                    >
+                                        <p className="text-[9px] sm:text-[10px] text-gray-500 uppercase font-bold tracking-wider">{s.label}</p>
+                                        <p className={`text-lg sm:text-xl font-bold mt-1 ${s.color}`}>{s.count}</p>
+                                    </button>
+                                ))}
                             </div>
 
-                            <div className="flex-1 overflow-y-auto p-6 space-y-8 font-sans">
-                                {/* Stats Summary */}
-                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-                                    {[
-                                        { label: 'Customers', count: (inspectingData.customers?.filter((c: any) => !c.isSupplier).length) || 0, color: 'text-blue-400', id: 'sec-customers' },
-                                        { label: 'Suppliers', count: (inspectingData.customers?.filter((c: any) => c.isSupplier).length) || 0, color: 'text-pink-400', id: 'sec-suppliers' },
-                                        { label: 'Items', count: inspectingData.items?.length || 0, color: 'text-green-400', id: 'sec-inventory' },
-                                        { label: 'Bills', count: inspectingData.transactions?.length || 0, color: 'text-purple-400', id: 'sec-bills' },
-                                        { label: 'Dues', count: inspectingData.reminders?.length || 0, color: 'text-orange-400', id: 'sec-dues' },
-                                    ].map(s => (
-                                        <button
-                                            key={s.label}
-                                            onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth' })}
-                                            className="bg-gray-800/50 rounded-2xl p-3 sm:p-4 border border-gray-700/50 hover:bg-gray-800 hover:border-gray-600 transition-all text-left"
-                                        >
-                                            <p className="text-[9px] sm:text-[10px] text-gray-500 uppercase font-bold tracking-wider">{s.label}</p>
-                                            <p className={`text-lg sm:text-xl font-bold mt-1 ${s.color}`}>{s.count}</p>
-                                        </button>
-                                    ))}
-                                </div>
-
-                                {/* Data Sections */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                                    {/* Customers Section */}
-                                    <div className="space-y-3" id="sec-customers">
-                                        <h3 className="font-semibold text-gray-300 flex items-center gap-2 text-sm"><Users className="w-4 h-4" /> Customers</h3>
-                                        <div className="bg-gray-950 border border-gray-800 rounded-xl overflow-hidden divide-y divide-gray-800 max-h-60 overflow-y-auto">
-                                            {inspectingData.customers?.filter((c: any) => !c.isSupplier).length > 0 ? (
-                                                inspectingData.customers.filter((c: any) => !c.isSupplier).slice(0, 30).map((c: any) => (
-                                                    <div key={c.id} className="p-3 text-xs flex items-center justify-between hover:bg-gray-900 transition-colors">
-                                                        <div className="flex items-center gap-2">
-                                                            <div
-                                                                className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center overflow-hidden border border-gray-700 cursor-pointer"
-                                                                onClick={() => c.picture && setViewImage(c.picture)}
-                                                            >
-                                                                {c.picture ? <img src={c.picture} className="w-full h-full object-cover" /> : <Users className="w-4 h-4 text-gray-600" />}
-                                                            </div>
-                                                            <span className="text-gray-300 font-medium">{c.name}</span>
+                            {/* Data Sections */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                                {/* Customers Section */}
+                                <div className="space-y-3" id="sec-customers">
+                                    <h3 className="font-semibold text-gray-300 flex items-center gap-2 text-sm"><Users className="w-4 h-4" /> Customers</h3>
+                                    <div className="bg-gray-950 border border-gray-800 rounded-xl overflow-hidden divide-y divide-gray-800 max-h-60 overflow-y-auto">
+                                        {inspectingData.customers?.filter((c: any) => !c.isSupplier).length > 0 ? (
+                                            inspectingData.customers.filter((c: any) => !c.isSupplier).slice(0, 30).map((c: any) => (
+                                                <div key={c.id} className="p-3 text-xs flex items-center justify-between hover:bg-gray-900 transition-colors">
+                                                    <div className="flex items-center gap-2">
+                                                        <div
+                                                            className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center overflow-hidden border border-gray-700 cursor-pointer"
+                                                            onClick={() => c.picture && setViewImage(c.picture)}
+                                                        >
+                                                            {c.picture ? <img src={c.picture} className="w-full h-full object-cover" /> : <Users className="w-4 h-4 text-gray-600" />}
                                                         </div>
-                                                        <span className="text-gray-500 italic">{c.phone}</span>
+                                                        <span className="text-gray-300 font-medium">{c.name}</span>
                                                     </div>
-                                                ))
-                                            ) : (
-                                                <div className="p-6 text-center text-gray-600 text-xs italic">No customers</div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Suppliers Section */}
-                                    <div className="space-y-3" id="sec-suppliers">
-                                        <h3 className="font-semibold text-pink-400 flex items-center gap-2 text-sm"><Users className="w-4 h-4" /> Suppliers</h3>
-                                        <div className="bg-gray-950 border border-gray-800 rounded-xl overflow-hidden divide-y divide-gray-800 max-h-60 overflow-y-auto">
-                                            {inspectingData.customers?.filter((c: any) => c.isSupplier).length > 0 ? (
-                                                inspectingData.customers.filter((c: any) => c.isSupplier).slice(0, 30).map((c: any) => (
-                                                    <div key={c.id} className="p-3 text-xs flex items-center justify-between hover:bg-gray-900 transition-colors">
-                                                        <div className="flex items-center gap-2">
-                                                            <div
-                                                                className="w-8 h-8 rounded-md bg-gray-800 flex items-center justify-center overflow-hidden border border-gray-700 cursor-pointer"
-                                                                onClick={() => c.picture && setViewImage(c.picture)}
-                                                            >
-                                                                {c.picture ? <img src={c.picture} className="w-full h-full object-cover" /> : <Shield className="w-4 h-4 text-gray-600" />}
-                                                            </div>
-                                                            <span className="text-pink-300 font-medium">{c.name}</span>
-                                                        </div>
-                                                        <span className="text-gray-500 italic">{c.phone}</span>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <div className="p-6 text-center text-gray-600 text-xs italic">No suppliers</div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Items Section */}
-                                    <div className="space-y-3" id="sec-inventory">
-                                        <h3 className="font-semibold text-green-400 flex items-center gap-2 text-sm"><Smartphone className="w-4 h-4" /> Inventory</h3>
-                                        <div className="bg-gray-950 border border-gray-800 rounded-xl overflow-hidden divide-y divide-gray-800 max-h-60 overflow-y-auto">
-                                            {inspectingData.items?.length > 0 ? (
-                                                inspectingData.items.slice(0, 30).map((i: any) => (
-                                                    <div key={i.id} className="p-3 text-xs flex items-center justify-between hover:bg-gray-900 transition-colors">
-                                                        <div className="flex items-center gap-2">
-                                                            <div
-                                                                className="w-8 h-8 rounded bg-gray-800 flex items-center justify-center overflow-hidden border border-gray-700 cursor-pointer"
-                                                                onClick={() => i.picture && setViewImage(i.picture)}
-                                                            >
-                                                                {i.picture ? <img src={i.picture} className="w-full h-full object-cover" /> : <Package className="w-4 h-4 text-gray-600" />}
-                                                            </div>
-                                                            <span className="text-gray-300 font-medium">{i.itemName}</span>
-                                                        </div>
-                                                        <span className="text-green-500">Rs. {i.sellingPrice}</span>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <div className="p-6 text-center text-gray-600 text-xs italic">No items</div>
-                                            )}
-                                        </div>
+                                                    <span className="text-gray-500 italic">{c.phone}</span>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="p-6 text-center text-gray-600 text-xs italic">No customers</div>
+                                        )}
                                     </div>
                                 </div>
 
-                                {/* Transactions Section */}
-                                <div className="space-y-3 pt-4 border-t border-gray-800" id="sec-bills">
-                                    <div className="flex items-center justify-between">
-                                        <h3 className="font-semibold text-purple-400 flex items-center gap-2 text-sm"><CreditCard className="w-4 h-4" /> Recent Transactions / Bills</h3>
-                                        <span className="text-[10px] text-gray-500 bg-gray-800 px-2 py-0.5 rounded">Showing last 50 transactions</span>
+                                {/* Suppliers Section */}
+                                <div className="space-y-3" id="sec-suppliers">
+                                    <h3 className="font-semibold text-pink-400 flex items-center gap-2 text-sm"><Users className="w-4 h-4" /> Suppliers</h3>
+                                    <div className="bg-gray-950 border border-gray-800 rounded-xl overflow-hidden divide-y divide-gray-800 max-h-60 overflow-y-auto">
+                                        {inspectingData.customers?.filter((c: any) => c.isSupplier).length > 0 ? (
+                                            inspectingData.customers.filter((c: any) => c.isSupplier).slice(0, 30).map((c: any) => (
+                                                <div key={c.id} className="p-3 text-xs flex items-center justify-between hover:bg-gray-900 transition-colors">
+                                                    <div className="flex items-center gap-2">
+                                                        <div
+                                                            className="w-8 h-8 rounded-md bg-gray-800 flex items-center justify-center overflow-hidden border border-gray-700 cursor-pointer"
+                                                            onClick={() => c.picture && setViewImage(c.picture)}
+                                                        >
+                                                            {c.picture ? <img src={c.picture} className="w-full h-full object-cover" /> : <Shield className="w-4 h-4 text-gray-600" />}
+                                                        </div>
+                                                        <span className="text-pink-300 font-medium">{c.name}</span>
+                                                    </div>
+                                                    <span className="text-gray-500 italic">{c.phone}</span>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="p-6 text-center text-gray-600 text-xs italic">No suppliers</div>
+                                        )}
                                     </div>
-                                    <div className="bg-gray-950 border border-gray-800 rounded-xl overflow-hidden overflow-x-auto">
-                                        <table className="w-full text-xs text-left">
-                                            <thead>
-                                                <tr className="bg-gray-900 text-gray-400 uppercase tracking-tighter border-b border-gray-800">
-                                                    <th className="px-4 py-2">Date</th>
-                                                    <th className="px-4 py-2">Customer</th>
-                                                    <th className="px-4 py-2">Details</th>
-                                                    <th className="px-4 py-2">Media</th>
-                                                    <th className="px-4 py-2 text-right">Amount</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-800">
-                                                {inspectingData.transactions?.length > 0 ? (
-                                                    inspectingData.transactions.slice(0, 50).map((t: any) => (
-                                                        <tr key={t.id} className="hover:bg-gray-900 transition-colors border-b border-gray-800/30">
-                                                            <td className="px-4 py-3 text-gray-400 border-r border-gray-800/30 font-mono text-[10px] whitespace-nowrap">
-                                                                {t.date ? new Date(t.date).toLocaleDateString() : '—'}
-                                                                <br />
-                                                                <span className="opacity-50">{t.date ? new Date(t.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
-                                                            </td>
-                                                            <td className="px-4 py-3 text-gray-200 font-medium border-r border-gray-800/30">
-                                                                {t.customerName || 'Direct Sale'}
-                                                            </td>
-                                                            <td className="px-4 py-3 text-gray-400 border-r border-gray-800/30">
-                                                                <div className="space-y-1">
-                                                                    {t.items ? (
-                                                                        t.items.map((it: any, idx: number) => (
-                                                                            <div key={idx} className="flex justify-between gap-4 text-[11px]">
-                                                                                <span className="text-gray-300">• {it.itemName}</span>
-                                                                                <span className="text-gray-500 whitespace-nowrap">{it.quantity} x {it.unitPrice}</span>
-                                                                            </div>
-                                                                        ))
-                                                                    ) : (
-                                                                        <span className="italic opacity-60 text-[11px]">{t.itemName || 'Manual Entry'} {t.quantity ? `(${t.quantity} unit)` : ''}</span>
-                                                                    )}
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-4 py-3 text-gray-400 border-r border-gray-800/30">
-                                                                <div className="flex gap-2">
-                                                                    {(t.image || t.picture) && (
-                                                                        <button onClick={() => setViewImage(t.image || t.picture)} className="w-8 h-8 rounded bg-blue-500/10 border border-blue-500/20 flex items-center justify-center hover:bg-blue-500/20 flex-shrink-0">
-                                                                            <Eye className="w-4 h-4 text-blue-400" />
-                                                                        </button>
-                                                                    )}
-                                                                    {t.items?.some((it: any) => it.picture) && (
-                                                                        <div className="flex -space-x-2">
-                                                                            {t.items.filter((it: any) => it.picture).slice(0, 2).map((it: any, idx: number) => (
-                                                                                <div
-                                                                                    key={idx}
-                                                                                    onClick={() => setViewImage(it.picture)}
-                                                                                    className="w-8 h-8 rounded border border-gray-700 overflow-hidden cursor-pointer hover:scale-110 transition-transform bg-gray-800 shadow-lg flex-shrink-0"
-                                                                                >
-                                                                                    <img src={it.picture} className="w-full h-full object-cover" />
-                                                                                </div>
-                                                                            ))}
+                                </div>
+
+                                {/* Items Section */}
+                                <div className="space-y-3" id="sec-inventory">
+                                    <h3 className="font-semibold text-green-400 flex items-center gap-2 text-sm"><Smartphone className="w-4 h-4" /> Inventory</h3>
+                                    <div className="bg-gray-950 border border-gray-800 rounded-xl overflow-hidden divide-y divide-gray-800 max-h-60 overflow-y-auto">
+                                        {inspectingData.items?.length > 0 ? (
+                                            inspectingData.items.slice(0, 30).map((i: any) => (
+                                                <div key={i.id} className="p-3 text-xs flex items-center justify-between hover:bg-gray-900 transition-colors">
+                                                    <div className="flex items-center gap-2">
+                                                        <div
+                                                            className="w-8 h-8 rounded bg-gray-800 flex items-center justify-center overflow-hidden border border-gray-700 cursor-pointer"
+                                                            onClick={() => i.picture && setViewImage(i.picture)}
+                                                        >
+                                                            {i.picture ? <img src={i.picture} className="w-full h-full object-cover" /> : <Package className="w-4 h-4 text-gray-600" />}
+                                                        </div>
+                                                        <span className="text-gray-300 font-medium">{i.itemName}</span>
+                                                    </div>
+                                                    <span className="text-green-500">Rs. {i.sellingPrice}</span>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="p-6 text-center text-gray-600 text-xs italic">No items</div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Transactions Section */}
+                            <div className="space-y-3 pt-4 border-t border-gray-800" id="sec-bills">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="font-semibold text-purple-400 flex items-center gap-2 text-sm"><CreditCard className="w-4 h-4" /> Recent Transactions / Bills</h3>
+                                    <span className="text-[10px] text-gray-500 bg-gray-800 px-2 py-0.5 rounded">Showing last 50 transactions</span>
+                                </div>
+                                <div className="bg-gray-950 border border-gray-800 rounded-xl overflow-hidden overflow-x-auto">
+                                    <table className="w-full text-xs text-left">
+                                        <thead>
+                                            <tr className="bg-gray-900 text-gray-400 uppercase tracking-tighter border-b border-gray-800">
+                                                <th className="px-4 py-2">Date</th>
+                                                <th className="px-4 py-2">Customer</th>
+                                                <th className="px-4 py-2">Details</th>
+                                                <th className="px-4 py-2">Media</th>
+                                                <th className="px-4 py-2 text-right">Amount</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-800">
+                                            {inspectingData.transactions?.length > 0 ? (
+                                                inspectingData.transactions.slice(0, 50).map((t: any) => (
+                                                    <tr key={t.id} className="hover:bg-gray-900 transition-colors border-b border-gray-800/30">
+                                                        <td className="px-4 py-3 text-gray-400 border-r border-gray-800/30 font-mono text-[10px] whitespace-nowrap">
+                                                            {t.date ? new Date(t.date).toLocaleDateString() : '—'}
+                                                            <br />
+                                                            <span className="opacity-50">{t.date ? new Date(t.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-gray-200 font-medium border-r border-gray-800/30">
+                                                            {t.customerName || 'Direct Sale'}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-gray-400 border-r border-gray-800/30">
+                                                            <div className="space-y-1">
+                                                                {t.items ? (
+                                                                    t.items.map((it: any, idx: number) => (
+                                                                        <div key={idx} className="flex justify-between gap-4 text-[11px]">
+                                                                            <span className="text-gray-300">• {it.itemName}</span>
+                                                                            <span className="text-gray-500 whitespace-nowrap">{it.quantity} x {it.unitPrice}</span>
                                                                         </div>
-                                                                    )}
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-4 py-3 text-right">
-                                                                <p className="text-green-400 font-bold text-sm">Rs. {t.totalAmount?.toLocaleString()}</p>
-                                                                <p className="text-[9px] text-gray-500">Paid: {t.amountPaid || 0}</p>
-                                                            </td>
-                                                        </tr>
-                                                    ))
-                                                ) : (
-                                                    <tr>
-                                                        <td colSpan={5} className="p-12 text-center text-gray-600 text-sm italic">
-                                                            No transactions found for this user
+                                                                    ))
+                                                                ) : (
+                                                                    <span className="italic opacity-60 text-[11px]">{t.itemName || 'Manual Entry'} {t.quantity ? `(${t.quantity} unit)` : ''}</span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-gray-400 border-r border-gray-800/30">
+                                                            <div className="flex gap-2">
+                                                                {(t.image || t.picture) && (
+                                                                    <button onClick={() => setViewImage(t.image || t.picture)} className="w-8 h-8 rounded bg-blue-500/10 border border-blue-500/20 flex items-center justify-center hover:bg-blue-500/20 flex-shrink-0">
+                                                                        <Eye className="w-4 h-4 text-blue-400" />
+                                                                    </button>
+                                                                )}
+                                                                {t.items?.some((it: any) => it.picture) && (
+                                                                    <div className="flex -space-x-2">
+                                                                        {t.items.filter((it: any) => it.picture).slice(0, 2).map((it: any, idx: number) => (
+                                                                            <div
+                                                                                key={idx}
+                                                                                onClick={() => setViewImage(it.picture)}
+                                                                                className="w-8 h-8 rounded border border-gray-700 overflow-hidden cursor-pointer hover:scale-110 transition-transform bg-gray-800 shadow-lg flex-shrink-0"
+                                                                            >
+                                                                                <img src={it.picture} className="w-full h-full object-cover" />
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right">
+                                                            <p className="text-green-400 font-bold text-sm">Rs. {t.totalAmount?.toLocaleString()}</p>
+                                                            <p className="text-[9px] text-gray-500">Paid: {t.amountPaid || 0}</p>
                                                         </td>
                                                     </tr>
-                                                )}
-                                            </tbody>
-                                        </table>
-                                        {inspectingData.transactions?.length > 15 && <div className="p-2 text-center text-xs text-gray-600 bg-gray-900">Showing last 15/{inspectingData.transactions.length} records</div>}
-                                    </div>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan={5} className="p-12 text-center text-gray-600 text-sm italic">No transactions found</td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
-                            <div className="p-4 border-t border-gray-800 bg-gray-950/50 flex justify-end font-sans">
-                                <button onClick={() => setShowInspector(false)} className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold text-sm shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98]">
-                                    Close Inspector
-                                </button>
-                            </div>
+                        </div>
+                        <div className="p-4 border-t border-gray-800 bg-gray-950/50 flex justify-end font-sans">
+                            <button onClick={() => setShowInspector(false)} className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold text-sm shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98]">
+                                Close Inspector
+                            </button>
                         </div>
                     </div>
-                )}
-            </div>
+                </div>
+            )}
 
             {/* View Image Dialog for Admin */}
             {viewImage && (

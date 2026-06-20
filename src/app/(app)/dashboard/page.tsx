@@ -30,7 +30,7 @@ export default function DashboardPage() {
   const isUserView = getViewMode() === 'user';
   const [isPremiumMode, setIsPremiumMode] = useState(true);
   const [adRefreshKey, setAdRefreshKey] = useState(0);
-  const [appUpdate, setAppUpdate] = useState<AppUpdate | null>(null);
+
 
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -64,10 +64,7 @@ export default function DashboardPage() {
         setLoading(false);
       }
 
-      // Check for app update
-      getAppUpdate().then((update) => {
-        if (update && update.isActive) setAppUpdate(update);
-      });
+
     });
 
     const handleUpdate = () => {
@@ -179,30 +176,6 @@ export default function DashboardPage() {
           <p className="text-sm italic font-serif text-muted-foreground dark:text-[#A68A73] mt-1">Daily Business Journal</p>
         </header>
 
-        {/* App Update Notification for Mobile & Desktop */}
-        {appUpdate && (
-          <div className="mb-8 rounded-2xl bg-orange-500/10 border border-orange-500/30 p-4 shadow-sm animate-in fade-in slide-in-from-top duration-500">
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center shrink-0">
-                <Download className="w-6 h-6 text-white" />
-              </div>
-              <div className="flex-1">
-                <h4 className="font-bold text-orange-600 dark:text-orange-400">Update Available! (v{appUpdate.version})</h4>
-                <p className="text-sm text-orange-800/80 dark:text-orange-200/80 mt-1">{appUpdate.message}</p>
-                {appUpdate.apkUrl && (
-                  <a
-                    href={appUpdate.apkUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-sm font-bold transition-all active:scale-95 shadow-md shadow-orange-500/20"
-                  >
-                    <Download className="w-4 h-4" /> Download New Version
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
 
         {upcomingReminders.length > 0 && (
           <div className="mb-8">
