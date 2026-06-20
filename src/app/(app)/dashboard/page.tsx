@@ -13,6 +13,7 @@ import { getAppUpdate, AppUpdate } from '@/lib/admin-service';
 import { auth } from '@/firebase/config';
 import { useTranslation } from '@/hooks/use-translation';
 import { SyncStatusIndicator } from '@/components/sync-status-indicator';
+import { Capacitor } from '@capacitor/core';
 
 type QuickAction = {
   href: string;
@@ -30,6 +31,7 @@ export default function DashboardPage() {
   const isUserView = getViewMode() === 'user';
   const [isPremiumMode, setIsPremiumMode] = useState(true);
   const [adRefreshKey, setAdRefreshKey] = useState(0);
+  const [appUpdate, setAppUpdate] = useState<AppUpdate | null>(null);
 
 
   const [loading, setLoading] = useState(true);
@@ -63,6 +65,8 @@ export default function DashboardPage() {
       } finally {
         setLoading(false);
       }
+
+      getAppUpdate().then(setAppUpdate);
 
 
     });
@@ -175,6 +179,33 @@ export default function DashboardPage() {
           </h2>
           <p className="text-sm italic font-serif text-muted-foreground dark:text-[#A68A73] mt-1">Daily Business Journal</p>
         </header>
+
+        {/* Global APK Download Banner for Web Users */}
+        {appUpdate && !Capacitor.isNativePlatform() && (
+          <div className="mb-8 rounded-2xl bg-gradient-to-r from-purple-600/10 to-blue-600/10 border border-purple-500/20 p-5 shadow-sm">
+            <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center shrink-0 shadow-lg">
+                <Download className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-bold text-gray-900 dark:text-white">Get the {appUpdate.isActive ? 'Latest' : 'Official'} Android App</h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  {appUpdate.isActive ? appUpdate.message : 'Enjoy a smoother experience with offline support and faster performance.'}
+                </p>
+              </div>
+              {appUpdate.apkUrl && (
+                <a
+                  href={appUpdate.apkUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-6 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl text-sm font-bold shadow-md hover:scale-105 transition-transform whitespace-nowrap"
+                >
+                  Download APK
+                </a>
+              )}
+            </div>
+          </div>
+        )}
 
 
         {upcomingReminders.length > 0 && (

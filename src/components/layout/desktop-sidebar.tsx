@@ -13,6 +13,7 @@ import { auth } from '@/firebase/config';
 import { signOut } from 'firebase/auth';
 import { getAppUpdate, AppUpdate, isAdmin } from '@/lib/admin-service';
 import { SyncStatusIndicator } from '@/components/sync-status-indicator';
+import { Capacitor } from '@capacitor/core';
 
 export function DesktopSidebar({ className }: { className?: string }) {
     const pathname = usePathname();
@@ -30,9 +31,9 @@ export function DesktopSidebar({ className }: { className?: string }) {
         };
         updateUI();
 
-        // Check for admin-sent app update notification
+        // Check for app development info
         getAppUpdate().then((update) => {
-            if (update && update.isActive) setAppUpdate(update);
+            if (update) setAppUpdate(update);
         });
 
         if (typeof window !== 'undefined') {
@@ -82,11 +83,13 @@ export function DesktopSidebar({ className }: { className?: string }) {
                     </div>
                 </div>
 
-                {/* APK Update Banner */}
-                {appUpdate && (
+                {/* APK Update / Download Banner */}
+                {appUpdate && !Capacitor.isNativePlatform() && (
                     <div className="mx-4 mb-4 rounded-xl bg-orange-500/10 border border-orange-500/30 p-3">
-                        <p className="text-xs font-bold text-orange-400 mb-1">🔔 App Update Available!</p>
-                        <p className="text-[11px] text-orange-200/80 mb-2 leading-tight">{appUpdate.message}</p>
+                        <p className="text-xs font-bold text-orange-400 mb-1">🔔 {appUpdate.isActive ? 'Update Available!' : 'Get Android App'}</p>
+                        <p className="text-[11px] text-orange-200/80 mb-2 leading-tight">
+                            {appUpdate.isActive ? appUpdate.message : 'For a better management experience, download our Android App.'}
+                        </p>
                         {appUpdate.apkUrl && (
                             <a
                                 href={appUpdate.apkUrl}
@@ -94,7 +97,7 @@ export function DesktopSidebar({ className }: { className?: string }) {
                                 rel="noreferrer"
                                 className="flex items-center gap-1.5 text-[11px] font-bold text-white bg-orange-500 hover:bg-orange-400 px-3 py-1.5 rounded-lg transition-colors"
                             >
-                                <Download className="w-3 h-3" /> Download Update
+                                <Download className="w-3 h-3" /> Download APK
                             </a>
                         )}
                     </div>
