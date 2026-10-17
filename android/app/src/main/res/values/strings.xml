@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MyShopBook</string>
+    <string name="title_activity_main">MyShopBook</string>
+    <string name="package_name">com.myshopbook.app</string>
+    <string name="custom_url_scheme">com.myshopbook.app</string>
+    <string name="server_client_id">367068109515-a7nsafaelio2jfk9lfe1hhp59g3roerc.apps.googleusercontent.com</string>
+</resources>
