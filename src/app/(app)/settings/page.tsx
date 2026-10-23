@@ -28,19 +28,9 @@ import { UserCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 import {
-  COMMON_TIMEZONES,
   getEffectiveTimezone,
-  getSavedTimezoneSetting,
-  setAppTimezone,
   formatAppTime,
 } from '@/lib/date-utils';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
 type ViewMode = 'user' | 'customer';
 
@@ -53,7 +43,6 @@ export default function SettingsPage() {
   const [isPremium, setIsPremium] = useState(false);
   const [currentTime, setCurrentTime] = useState('');
   const [timezone, setTimezone] = useState('');
-  const [selectedTz, setSelectedTz] = useState('auto');
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [userName, setUserName] = useState('');
@@ -64,7 +53,6 @@ export default function SettingsPage() {
   useEffect(() => {
     setMounted(true);
     setVm(getViewMode());
-    setSelectedTz(getSavedTimezoneSetting());
 
     const checkPremium = () => {
       setIsPremium(getIsPremium());
@@ -187,49 +175,17 @@ export default function SettingsPage() {
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <Label className="text-lg font-serif font-bold dark:text-[#E0E0E0]">Clock & Timezone / وقت اور ٹائم زون</Label>
-              <span className="text-xs text-muted-foreground">Local Time / آپ کا مقامی وقت</span>
+              <Label className="text-lg font-serif font-bold dark:text-[#E0E0E0]">Clock & Timezone</Label>
+              <span className="text-xs text-muted-foreground">Local Time</span>
             </div>
             <Card className="p-4 bg-[#FAF8F3] dark:bg-[#252525] border-[#D3D3D3] dark:border-[#444444]">
-              <CardContent className="space-y-4 p-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <Clock className="w-8 h-8 text-[#8C6A4F] dark:text-[#A68A73]" />
-                    <div>
-                      <p className="text-2xl font-sans font-bold dark:text-white">{currentTime}</p>
-                      <p className="text-sm font-medium text-[#6B7A50] dark:text-[#8FA86B]">Active Timezone: {timezone}</p>
-                    </div>
+              <CardContent className="flex items-center justify-between p-0">
+                <div className="flex items-center gap-4">
+                  <Clock className="w-8 h-8 text-[#8C6A4F] dark:text-[#A68A73]" />
+                  <div>
+                    <p className="text-2xl font-sans font-bold dark:text-white">{currentTime}</p>
+                    <p className="text-sm font-medium text-[#6B7A50] dark:text-[#8FA86B]">Active Timezone: {timezone}</p>
                   </div>
-                </div>
-                <div className="pt-2 border-t border-[#D3D3D3]/60 dark:border-[#444444]">
-                  <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                    Select Your Timezone (آپ جہاں بھی ہوں، اپنا علاقائی ٹائم زون منتخب کریں):
-                  </Label>
-                  <Select
-                    value={selectedTz}
-                    onValueChange={(val) => {
-                      setSelectedTz(val);
-                      setAppTimezone(val);
-                      const eff = getEffectiveTimezone();
-                      setTimezone(eff);
-                      setCurrentTime(formatAppTime(new Date()));
-                      toast({ title: `Timezone updated: ${val === 'auto' ? `Auto-detect (${eff})` : val}` });
-                    }}
-                  >
-                    <SelectTrigger className="w-full bg-white dark:bg-[#1E1E1E] border-[#CFCAC0] dark:border-[#444444]">
-                      <SelectValue placeholder="Select Timezone" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {COMMON_TIMEZONES.map((tzItem) => (
-                        <SelectItem key={tzItem.value} value={tzItem.value}>
-                          {tzItem.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Auto-detect ensures users anywhere in the world see their exact local time and date automatically.
-                  </p>
                 </div>
               </CardContent>
             </Card>

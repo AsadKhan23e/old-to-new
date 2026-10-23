@@ -1,22 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { Settings, ArrowLeft, Languages, Cloud, CloudOff, RefreshCcw } from 'lucide-react';
+import { Settings, ArrowLeft, Cloud, CloudOff, RefreshCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePathname, useRouter } from 'next/navigation';
-import { useTranslation } from '@/hooks/use-translation';
 import { useSyncStatus } from '@/lib/data-layer';
 
 export function Header() {
   const router = useRouter();
   const pathname = usePathname();
-  const { language, setLang } = useTranslation();
   const syncStatus = useSyncStatus();
-
-  const toggleLanguage = () => {
-    const newLang = language === 'en' ? 'ur' : 'en';
-    setLang(newLang);
-  };
 
   const showBackButton = true;
 
@@ -36,10 +29,6 @@ export function Header() {
             {syncStatus === 'offline' && <div className="flex items-center gap-1.5"><CloudOff className="h-4 w-4 text-orange-500" /><span className="text-[10px] text-muted-foreground font-medium">Offline</span></div>}
             {syncStatus === 'syncing' && <div className="flex items-center gap-1.5"><RefreshCcw className="h-4 w-4 text-blue-500 animate-spin" /><span className="text-[10px] text-muted-foreground font-medium">Syncing...</span></div>}
           </div>
-          <Button onClick={toggleLanguage} variant="ghost" size="icon">
-            <Languages className="h-5 w-5" />
-            <span className="sr-only">Toggle Language</span>
-          </Button>
           <Button asChild variant="ghost" size="icon">
             <Link href="/settings">
               <Settings className="h-5 w-5" />
