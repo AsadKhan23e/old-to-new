@@ -1,0 +1,100 @@
+name: Build and Release Android APK
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Publish APK to GitHub Releases?'
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  build-apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Node Dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Build Next.js Web App
+        run: npm run build
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+
+      - name: Build Android Debug APK
+        run: |
+          cd android
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Rename & Prepare APK
+        id: prepare-apk
+        run: |
+          mkdir -p build-output
+          APK_PATH="android/app/build/outputs/apk/debug/app-debug.apk"
+          if [ -f "$APK_PATH" ]; then
+            TIMESTAMP=$(date +'%Y%m%d_%H%M%S')
+            RELEASE_NAME="MyShopBook-v1.1.7-${TIMESTAMP}.apk"
+            cp "$APK_PATH" "build-output/${RELEASE_NAME}"
+            echo "apk_path=build-output/${RELEASE_NAME}" >> $GITHUB_OUTPUT
+            echo "release_name=${RELEASE_NAME}" >> $GITHUB_OUTPUT
+            echo "APK generated successfully at build-output/${RELEASE_NAME}"
+          else
+            echo "APK file not found!" >&2
+            exit 1
+          fi
+
+      - name: Upload APK to Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: myshopbook-apk
+          path: build-output/*.apk
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.create_release == 'true' || github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build-output/*.apk
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v1.1.7-build-{0}', github.run_number) }}
+          name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('MyShopBook Build #{0}', github.run_number) }}
+          body: |
+            ## MyShopBook Android APK Release
+            - **Build Number**: #${{ github.run_number }}
+            - **Commit**: ${{ github.sha }}
+            - **Date**: ${{ github.event.head_commit.timestamp || 'Latest' }}
+
+            Download the attached `.apk` file below and install on your Android device.
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

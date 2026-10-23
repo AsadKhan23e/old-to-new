@@ -28,6 +28,7 @@ import { getActiveUser, getUserData, saveUserData, getViewMode, getIsPremium, Us
 import { useTranslation } from '@/hooks/use-translation';
 import { generateTransactionsReportPDF } from '@/lib/pdf-service';
 import { isStaffMember } from '@/lib/employee-service';
+import { formatAppDateTime } from '@/lib/date-utils';
 
 
 type ViewMode = 'user' | 'customer';
@@ -276,7 +277,7 @@ export default function TransactionsPage() {
                 <div className="flex-1 space-y-1">
                   <p className="font-bold">{tx.customerName}</p>
                   <p className="font-semibold text-sm">{getTransactionDescription(tx)}</p>
-                  <p className="text-sm text-muted-foreground">{new Date(tx.date).toLocaleString()}</p>
+                  <p className="text-sm text-muted-foreground">{formatAppDateTime(tx.date)}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="text-right">

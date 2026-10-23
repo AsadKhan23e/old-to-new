@@ -11,27 +11,15 @@ type BillRendererProps = {
     onViewImage?: (image: string) => void;
 };
 
+import { formatAppDateTime, formatAppDate, formatAppTime } from '@/lib/date-utils';
+
 const formatDateTime = (dateString: string) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'Invalid Date';
-    return date.toLocaleString(undefined, {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-    });
+    return formatAppDateTime(dateString);
 };
 
 const formatPaymentDateTime = (dateString: string) => {
     if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'Invalid Date';
-    const datePart = date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-    const timePart = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true });
-    return `${datePart} at ${timePart}`;
+    return `${formatAppDate(dateString)} at ${formatAppTime(dateString, { second: undefined })}`;
 };
 
 import { InvoiceBackgroundLayer } from "./InvoiceBackgroundLayer";

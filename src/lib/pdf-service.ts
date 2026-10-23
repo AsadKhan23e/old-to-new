@@ -73,11 +73,21 @@ const saveOrSharePDF = async (doc: jsPDF, filename: string) => {
     }
 };
 
+import { getEffectiveTimezone } from './date-utils';
+
+const formatDateOnly = (dateStringOrDate: string | Date) => {
+    if (!dateStringOrDate) return '';
+    const date = typeof dateStringOrDate === 'string' ? new Date(dateStringOrDate) : dateStringOrDate;
+    if (isNaN(date.getTime())) return '';
+    return date.toLocaleDateString('en-GB', { timeZone: getEffectiveTimezone() });
+};
+
 const formatDateTime = (dateString: string) => {
     if (!dateString) return '';
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return '';
     return date.toLocaleString('en-GB', {
+        timeZone: getEffectiveTimezone(),
         day: 'numeric',
         month: 'short',
         year: 'numeric',
@@ -435,7 +445,7 @@ export const generateFullKhataPDF = async (
     doc.setFontSize(9.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(60);
-    doc.text(`Statement Date: ${new Date().toLocaleDateString('en-GB')}`, pageWidth - margin, currentY, { align: 'right' });
+    doc.text(`Statement Date: ${formatDateOnly(new Date())}`, pageWidth - margin, currentY, { align: 'right' });
     currentY += 5.5;
 
     if (customer.phone) {
@@ -483,7 +493,7 @@ export const generateFullKhataPDF = async (
 
                 adjustmentsList.push({
                     billNumber: tx.billNumber || 'Ref',
-                    date: new Date(adj.editedAt).toLocaleDateString('en-GB'),
+                    date: formatDateOnly(adj.editedAt),
                     diff: adj.difference,
                     note: `Bill #${tx.billNumber || 'Ref'} edited (${(adj.previousGrandTotal || 0).toLocaleString()} -> ${(adj.newGrandTotal || 0).toLocaleString()})${changeStr}`
                 });
@@ -491,7 +501,7 @@ export const generateFullKhataPDF = async (
         } else if (tx.isEdited && !tx.hideEditedBadge) {
             adjustmentsList.push({
                 billNumber: tx.billNumber || 'Ref',
-                date: new Date(tx.modifiedAt || tx.date).toLocaleDateString('en-GB'),
+                date: formatDateOnly(tx.modifiedAt || tx.date),
                 diff: 0,
                 note: `Bill #${tx.billNumber || 'Ref'} modified / تبدیل شدہ`
             });
@@ -837,7 +847,7 @@ export const generateTransactionsReportPDF = async (
     currentY += 15;
 
     const tableData = transactions.map((tx) => [
-        new Date(tx.date).toLocaleDateString(),
+        formatDateOnly(tx.date),
         tx.customerName || 'N/A',
         tx.totalAmount.toLocaleString(),
         tx.remainingBalance.toLocaleString()

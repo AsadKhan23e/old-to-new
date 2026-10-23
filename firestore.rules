@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'king.khan648k@gmail.com';
+    }
+
+    // ── Users ────────────────────────────────────────────────────────
+    // Allow admin to list/manage all users
+    match /users {
+      allow read, write: if isAdmin();
+    }
+
+    match /users/{userEmail} {
+      // Allow read for everyone (for shop verification and staff login)
+      allow read: if true;
+      allow write: if (request.auth != null && 
+        (request.auth.token.email == userEmail || 
+         request.auth.token.email.lower() == userEmail.lower())) || isAdmin() || request.auth == null;
+      
+      // Allow access to all subcollections (customers, transactions, employees, activityLog, etc.)
+      match /{allPaths=**} {
+        allow read, write: if true;
+      }
+    }
+
+    // ── appConfig ────────────────────────────────────────────────────
+    match /appConfig/{docId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // ── Premium Requests ──────────────────────────────────────────────
+    match /premiumRequests {
+      allow read, list: if isAdmin();
+    }
+    
+    match /premiumRequests/{reqId} {
+      allow create: if request.auth != null && request.resource.data.userEmail == request.auth.token.email;
+      allow read: if request.auth != null && (request.auth.token.email == resource.data.userEmail || isAdmin());
+      allow write: if isAdmin();
+    }
+  }
+}
+

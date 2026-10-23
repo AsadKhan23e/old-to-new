@@ -27,6 +27,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { generateSingleBillPDF, generateFullKhataPDF } from '@/lib/pdf-service';
 import { getIsPremium } from '@/lib/data-layer';
 import { isStaffMember } from '@/lib/employee-service';
+import { formatAppDateTime, formatAppDate, getLocalDateString } from '@/lib/date-utils';
 
 type CustomerWithBalance = Customer & { balance: number };
 
@@ -41,7 +42,7 @@ const AddPaymentModal = ({
 }) => {
   const { t } = useTranslation();
   const [amount, setAmount] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(getLocalDateString());
   const [notes, setNotes] = useState('');
   const [image, setImage] = useState<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -547,7 +548,7 @@ const EditBillModal = ({
       {
         id: `pay_${Date.now()}_${prev.length}`,
         amount: 0,
-        date: new Date().toISOString().split('T')[0],
+        date: getLocalDateString(),
         notes: ''
       }
     ]);
@@ -1140,7 +1141,7 @@ const CustomerDetailsModal = ({
     });
 
     const latestPayment = paymentDates.length > 0
-      ? new Date(Math.max(...paymentDates.map(d => d.getTime()))).toLocaleDateString()
+      ? formatAppDate(new Date(Math.max(...paymentDates.map(d => d.getTime()))))
       : 'N/A';
 
     return {
@@ -1385,16 +1386,7 @@ const CustomerDetailsModal = ({
   };
 
   const formatDateTime = (dateString: string) => {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'Invalid Date';
-    return date.toLocaleString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
+    return formatAppDateTime(dateString);
   }
 
   const generateBillText = (bill: Transaction) => {
@@ -1405,8 +1397,8 @@ const CustomerDetailsModal = ({
     const totalPaid = (bill.amountPaid || 0) + (bill.additionalPayments?.reduce((sum, p) => sum + p.amount, 0) || 0);
 
     const paymentsText = [
-      ...(bill.amountPaid > 0 ? [`- Initial: ${bill.amountPaid.toLocaleString()} on ${new Date(bill.date).toLocaleDateString()}`] : []),
-      ...(bill.additionalPayments || []).map(p => `- ${p.amount.toLocaleString()} on ${new Date(p.date).toLocaleDateString()}${p.notes ? ` (${p.notes})` : ''}`)
+      ...(bill.amountPaid > 0 ? [`- Initial: ${bill.amountPaid.toLocaleString()} on ${formatAppDate(bill.date)}`] : []),
+      ...(bill.additionalPayments || []).map(p => `- ${p.amount.toLocaleString()} on ${formatAppDate(p.date)}${p.notes ? ` (${p.notes})` : ''}`)
     ].join('\n');
 
     return `
@@ -1513,7 +1505,7 @@ ${billDesignSettings.footer}
 
     const recentBillsText = billsToShow.map(tx => {
       const editLabel = tx.isEdited ? ' (Edited / تبدیل شدہ)' : '';
-      return `• Bill #${tx.billNumber}${editLabel}: Rs. ${tx.totalAmount.toLocaleString()} (Due: Rs. ${tx.remainingBalance.toLocaleString()}) - ${new Date(tx.date).toLocaleDateString()}`;
+      return `• Bill #${tx.billNumber}${editLabel}: Rs. ${tx.totalAmount.toLocaleString()} (Due: Rs. ${tx.remainingBalance.toLocaleString()}) - ${formatAppDate(tx.date)}`;
     }).join('\n') + olderBillsNote;
 
     const calculatedBalance = totalSalesValue - totalPaid;
@@ -1523,10 +1515,10 @@ ${billDesignSettings.footer}
     sortedSales.forEach(tx => {
       if (tx.billAdjustments && tx.billAdjustments.length > 0) {
         tx.billAdjustments.forEach(adj => {
-          adjustmentsList.push(`• Bill #${tx.billNumber}: ${adj.difference > 0 ? '+' : ''}Rs. ${adj.difference.toLocaleString()} (${new Date(adj.editedAt).toLocaleDateString()})`);
+          adjustmentsList.push(`• Bill #${tx.billNumber}: ${adj.difference > 0 ? '+' : ''}Rs. ${adj.difference.toLocaleString()} (${formatAppDate(adj.editedAt)})`);
         });
       } else if (tx.isEdited) {
-        adjustmentsList.push(`• Bill #${tx.billNumber}: تبدیل شدہ / Edited (${new Date(tx.modifiedAt || tx.date).toLocaleDateString()})`);
+        adjustmentsList.push(`• Bill #${tx.billNumber}: تبدیل شدہ / Edited (${formatAppDate(tx.modifiedAt || tx.date)})`);
       }
     });
 
@@ -1542,7 +1534,7 @@ ${billDesignSettings.footer}
 ━━━━━━━━━━━━━━━━━━━━
 *Customer:* ${customer.name}
 *Phone:* ${customer.phone}
-*Date:* ${new Date().toLocaleDateString()}
+*Date:* ${formatAppDate(new Date())}
 ━━━━━━━━━━━━━━━━━━━━
 *Total Sales:* Rs. ${totalSalesValue.toLocaleString()}
 *Total Paid:* Rs. ${totalPaid.toLocaleString()}
