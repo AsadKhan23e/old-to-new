@@ -60,12 +60,15 @@ export type Payment = {
   date: string;
   notes?: string | null;
   image?: string | null;
+  createdByName?: string | null;
 };
 
 export type Transaction = {
   id: string;
   customerId: string;
   customerName?: string | null;
+  createdByName?: string | null;
+  createdByRole?: string | null;
   items?: SoldItem[] | null;
   itemId?: string | null;
   itemName?: string | null;

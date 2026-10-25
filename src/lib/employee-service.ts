@@ -226,8 +226,9 @@ export async function loginAsEmployee(
     pin: string
 ): Promise<EmployeeSession | null> {
     const cleanEmail = ownerEmail.toLowerCase().trim();
+    const cleanPin = pin.trim();
     const employees = await getEmployees(cleanEmail);
-    const match = employees.find((e) => e.pin.trim() === pin.trim() && e.isActive);
+    const match = employees.find((e) => String(e.pin).trim() === cleanPin && e.isActive);
     if (!match) return null;
 
     const session: EmployeeSession = {
@@ -238,6 +239,36 @@ export async function loginAsEmployee(
     };
     setEmployeeSession(session);
     return session;
+}
+
+// ─── Real-Time Session Validation & Kill Switch ─────────────────────────────
+// Checks if the staff account was deleted or disabled by the owner.
+// If offline, permits local offline work. As soon as internet connects, re-validates.
+export async function validateEmployeeSession(): Promise<boolean> {
+    if (typeof window === 'undefined') return true;
+    const session = getEmployeeSession();
+    if (!session) return true;
+
+    // Offline check: If offline, allow cashier to continue offline work
+    if (!navigator.onLine) {
+        return true;
+    }
+
+    try {
+        const empRef = doc(db, 'users', session.ownerEmail, 'employees', session.employeeId);
+        const snap = await getDoc(empRef);
+        if (!snap.exists() || !snap.data()?.isActive) {
+            console.warn('Staff session revoked or deleted by owner.');
+            clearEmployeeSession();
+            localStorage.removeItem('cashbookpro_activeUser');
+            window.location.href = '/employee-login?revoked=true';
+            return false;
+        }
+        return true;
+    } catch {
+        // Transient network glitch - keep session to prevent disruption
+        return true;
+    }
 }
 
 // ─── Activity Logging ────────────────────────────────────────────────────────

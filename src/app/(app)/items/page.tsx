@@ -27,6 +27,7 @@ import { BillRenderer } from '@/components/billing/BillRenderer';
 import { generateSingleBillPDF } from '@/lib/pdf-service';
 import { getBillDesignSettings, BillDesignSettings } from '@/lib/data-layer';
 import { pickContact } from '@/lib/contact-service';
+import { getEmployeeSession } from '@/lib/employee-service';
 
 type ViewMode = 'user' | 'customer';
 
@@ -832,10 +833,13 @@ export default function ItemsPage() {
       finalBillNumber = maxExisting + 1;
     }
 
+    const staffSession = getEmployeeSession();
     const newTransaction: Transaction = {
       id: new Date().toISOString(),
       customerId: saleCustomerId,
       customerName: customer.name,
+      createdByName: staffSession?.employeeName || null,
+      createdByRole: staffSession?.role || null,
       items: selectedItemsForSale.map(si => ({
         itemId: si.id,
         itemName: si.name,

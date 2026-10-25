@@ -31,9 +31,14 @@ import {
     Pencil,
     ShieldCheck,
     Eye,
+    EyeOff,
     RefreshCcw,
     ToggleLeft,
     ToggleRight,
+    Copy,
+    Check,
+    Share2,
+    Key,
 } from 'lucide-react';
 
 const ROLE_LABELS: Record<EmployeeRole, string> = {
@@ -65,8 +70,41 @@ export default function ManageEmployeesPage() {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [form, setForm] = useState({ ...emptyForm });
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+    const [copiedEmail, setCopiedEmail] = useState(false);
+    const [visiblePins, setVisiblePins] = useState<Record<string, boolean>>({});
     const router = useRouter();
     const { toast } = useToast();
+
+    const copyOwnerEmail = () => {
+        if (!ownerEmail) return;
+        navigator.clipboard.writeText(ownerEmail);
+        setCopiedEmail(true);
+        toast({ title: 'Shop Owner Email copied!', description: 'Share this email with your staff members.' });
+        setTimeout(() => setCopiedEmail(false), 2000);
+    };
+
+    const togglePinVisibility = (id: string) => {
+        setVisiblePins(prev => ({ ...prev, [id]: !prev[id] }));
+    };
+
+    const shareStaffCredentials = (emp: Employee) => {
+        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+        const loginUrl = `${origin}/employee-login`;
+        const text = `*MyShopBook - Staff Login Details*\n` +
+            `Assalam-o-Alaikum ${emp.name}!\n` +
+            `Aap ka staff login credentials yeh hain:\n\n` +
+            `🏢 *Shop Owner Email:* ${ownerEmail}\n` +
+            `🔑 *Aap Ka PIN:* ${emp.pin}\n` +
+            `👤 *Role:* ${ROLE_LABELS[emp.role] || emp.role}\n` +
+            `🔗 *Login Link:* ${loginUrl}\n\n` +
+            `Apne mobile par yeh link khol kar Shop Owner Email aur apna PIN darj karein.`;
+
+        const cleanPhone = (emp.phone || '').replace(/[^0-9]/g, '');
+        const waUrl = cleanPhone.length >= 10
+            ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`
+            : `https://wa.me/?text=${encodeURIComponent(text)}`;
+        window.open(waUrl, '_blank');
+    };
 
     useEffect(() => {
         const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -175,16 +213,35 @@ export default function ManageEmployeesPage() {
                 </Button>
             </div>
 
-            {/* Staff Login Link Info */}
-            <Card className="mb-6 bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800">
-                <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                    <ShieldCheck className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                        <p className="text-sm font-bold text-amber-800 dark:text-amber-300">Share with your staff:</p>
-                        <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
-                            Staff login link: <span className="font-mono font-bold">/employee-login</span>&nbsp;
-                            — They need your email + their PIN
-                        </p>
+            {/* Staff Login Link & Owner ID Card */}
+            <Card className="mb-6 bg-[#FAF8F3] dark:bg-[#1A1A1A] border-[#6B7A50]/30 shadow-sm">
+                <CardContent className="p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-[#6B7A50]/15 flex items-center justify-center shrink-0">
+                            <ShieldCheck className="w-6 h-6 text-[#6B7A50]" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Your Shop Owner Login ID:</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                                <code className="font-mono text-sm font-bold bg-white dark:bg-black/40 px-2.5 py-1 rounded border border-[#CFCAC0] dark:border-[#444444] text-[#2F2F2F] dark:text-[#E0E0E0]">
+                                    {ownerEmail || 'Loading...'}
+                                </code>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={copyOwnerEmail}
+                                    className="h-8 gap-1 text-xs border-[#6B7A50]/40 text-[#6B7A50] hover:bg-[#6B7A50]/10"
+                                >
+                                    {copiedEmail ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                                    {copiedEmail ? 'Copied' : 'Copy'}
+                                </Button>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1.5">
+                                Staff members log in at <span className="font-mono font-bold text-[#6B7A50]">/employee-login</span> using this Shop Owner ID + their 4-digit PIN.
+                            </p>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -206,26 +263,49 @@ export default function ManageEmployeesPage() {
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {employees.map((emp) => (
-                        <Card key={emp.id} className="bg-white dark:bg-[#1E1E1E] border-[#CFCAC0] dark:border-[#333333]">
+                        <Card key={emp.id} className="bg-white dark:bg-[#1E1E1E] border-[#CFCAC0] dark:border-[#333333] shadow-sm">
                             <CardContent className="p-4 space-y-3">
                                 <div className="flex items-start justify-between">
                                     <div>
                                         <p className="font-bold text-lg dark:text-white">{emp.name}</p>
-                                        <p className="text-sm text-muted-foreground">{emp.phone || 'No phone'}</p>
+                                        <p className="text-xs text-muted-foreground">{emp.phone || 'No contact phone'}</p>
                                     </div>
                                     <span className={`text-xs font-bold px-2 py-1 rounded-full ${ROLE_COLORS[emp.role]}`}>
                                         {ROLE_LABELS[emp.role]}
                                     </span>
                                 </div>
 
-                                <div className="flex items-center gap-2">
-                                    <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${emp.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                        {emp.isActive ? '🟢 Active' : '🔴 Inactive'}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">PIN: {'•'.repeat(emp.pin.length)}</span>
+                                <div className="flex items-center justify-between bg-muted/30 p-2 rounded-lg">
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${emp.isActive ? 'bg-green-100 text-green-700 dark:bg-green-950/60 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300'}`}>
+                                            {emp.isActive ? '🟢 Active' : '🔴 Inactive'}
+                                        </span>
+                                        <div className="flex items-center gap-1 text-xs font-mono font-bold">
+                                            <Key className="w-3.5 h-3.5 text-muted-foreground" />
+                                            <span>PIN: {visiblePins[emp.id] ? emp.pin : '••••'}</span>
+                                        </div>
+                                    </div>
+                                    <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-6 w-6"
+                                        onClick={() => togglePinVisibility(emp.id)}
+                                        title={visiblePins[emp.id] ? "Hide PIN" : "Show PIN"}
+                                    >
+                                        {visiblePins[emp.id] ? <EyeOff className="w-3.5 h-3.5 text-muted-foreground" /> : <Eye className="w-3.5 h-3.5 text-muted-foreground" />}
+                                    </Button>
                                 </div>
 
-                                <div className="flex gap-2 pt-1">
+                                {/* WhatsApp Share Button */}
+                                <Button
+                                    size="sm"
+                                    onClick={() => shareStaffCredentials(emp)}
+                                    className="w-full bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs gap-1.5 h-8 shadow-sm"
+                                >
+                                    <Share2 className="w-3.5 h-3.5" /> Share Login on WhatsApp
+                                </Button>
+
+                                <div className="flex gap-2 pt-1 border-t border-border/40">
                                     <Button size="sm" variant="outline" onClick={() => openEditDialog(emp)} className="flex-1 gap-1 text-xs">
                                         <Pencil className="w-3 h-3" /> Edit
                                     </Button>

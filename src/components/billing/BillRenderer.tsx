@@ -70,6 +70,11 @@ export const BillRenderer = ({ bill, settings, customer, runningBalance, onViewI
                         {customer?.phone && (
                             <p className="text-xs text-muted-foreground">Phone: {customer.phone}</p>
                         )}
+                        {bill.createdByName && (
+                            <p className="text-[11px] text-[#6B7A50] font-medium">
+                                Created by Staff: {bill.createdByName} {bill.createdByRole ? `(${bill.createdByRole})` : ''}
+                            </p>
+                        )}
                     </div>
                 </div>
 

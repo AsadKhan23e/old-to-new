@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { db, auth } from '@/firebase/config';
 import { doc, getDoc } from 'firebase/firestore';
@@ -10,15 +10,25 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Users, KeyRound, RefreshCcw, ArrowLeft } from 'lucide-react';
+import { Users, KeyRound, RefreshCcw, ArrowLeft, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export default function EmployeeLoginPage() {
     const [ownerEmail, setOwnerEmail] = useState('');
     const [pin, setPin] = useState('');
     const [loading, setLoading] = useState(false);
+    const [isRevoked, setIsRevoked] = useState(false);
     const router = useRouter();
     const { toast } = useToast();
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('revoked') === 'true') {
+                setIsRevoked(true);
+            }
+        }
+    }, []);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -38,7 +48,7 @@ export default function EmployeeLoginPage() {
                 toast({
                     variant: 'destructive',
                     title: 'Login Failed',
-                    description: 'Incorrect PIN or staff account is inactive. Ask shop owner to verify under Settings > Manage Staff.',
+                    description: 'Incorrect PIN or staff account is inactive. Ask your shop owner for their exact Shop Owner Email and active PIN.',
                 });
                 return;
             }
@@ -81,10 +91,19 @@ export default function EmployeeLoginPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
+                    {isRevoked && (
+                        <div className="mb-5 p-3 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 flex items-start gap-2 text-red-700 dark:text-red-300 text-xs">
+                            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                            <div>
+                                <p className="font-bold">Access Revoked</p>
+                                <p>Your staff account was deactivated or removed by the shop owner.</p>
+                            </div>
+                        </div>
+                    )}
                     <form onSubmit={handleLogin} className="space-y-5">
                         <div className="space-y-2">
                             <Label htmlFor="ownerEmail" className="text-xs font-bold uppercase tracking-wider text-gray-500">
-                                Shop Owner's Email
+                                Shop Owner's Email / ID
                             </Label>
                             <Input
                                 id="ownerEmail"

@@ -26,7 +26,7 @@ import { BillRenderer } from '@/components/billing/BillRenderer';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { generateSingleBillPDF, generateFullKhataPDF } from '@/lib/pdf-service';
 import { getIsPremium } from '@/lib/data-layer';
-import { isStaffMember } from '@/lib/employee-service';
+import { isStaffMember, getEmployeeSession } from '@/lib/employee-service';
 import { formatAppDateTime, formatAppDate, getLocalDateString } from '@/lib/date-utils';
 
 type CustomerWithBalance = Customer & { balance: number };
@@ -1232,12 +1232,14 @@ const CustomerDetailsModal = ({
       return;
     }
 
+    const empSession = getEmployeeSession();
     const newPayment: Payment = {
       id: new Date().toISOString(),
       amount: amount,
       date: new Date(`${date}T${new Date().toTimeString().split(' ')[0]}`).toISOString(),
       notes: notes || null,
-      image: image || null
+      image: image || null,
+      createdByName: empSession?.employeeName || null,
     };
 
     const targetBillIndex = data.transactions.findIndex(tx => tx.id === targetBill.id);
