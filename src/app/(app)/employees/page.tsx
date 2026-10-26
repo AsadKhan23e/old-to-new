@@ -87,23 +87,37 @@ export default function ManageEmployeesPage() {
         setVisiblePins(prev => ({ ...prev, [id]: !prev[id] }));
     };
 
-    const shareStaffCredentials = (emp: Employee) => {
+    const shareStaffCredentials = async (emp: Employee) => {
         const origin = typeof window !== 'undefined' ? window.location.origin : '';
         const loginUrl = `${origin}/employee-login`;
-        const text = `*MyShopBook - Staff Login Details*\n` +
+        const text = `*Staff Login Details*\n` +
             `Assalam-o-Alaikum ${emp.name}!\n` +
-            `Aap ka staff login credentials yeh hain:\n\n` +
-            `🏢 *Shop Owner Email:* ${ownerEmail}\n` +
+            `Aap ka staff login account tayyar hai:\n\n` +
+            `📱 *Staff Login ID:* ${emp.phone || 'Apna Mobile/Email'}\n` +
             `🔑 *Aap Ka PIN:* ${emp.pin}\n` +
             `👤 *Role:* ${ROLE_LABELS[emp.role] || emp.role}\n` +
             `🔗 *Login Link:* ${loginUrl}\n\n` +
-            `Apne mobile par yeh link khol kar Shop Owner Email aur apna PIN darj karein.`;
+            `Apne mobile par link khol kar apna Login ID aur PIN darj karein.`;
 
-        const cleanPhone = (emp.phone || '').replace(/[^0-9]/g, '');
-        const waUrl = cleanPhone.length >= 10
-            ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`
-            : `https://wa.me/?text=${encodeURIComponent(text)}`;
-        window.open(waUrl, '_blank');
+        // Universal Share API: Opens app chooser (WhatsApp, BWhatsApp, SMS, Telegram, etc.)
+        if (typeof navigator !== 'undefined' && navigator.share) {
+            try {
+                await navigator.share({
+                    title: `${emp.name} - Staff Login`,
+                    text: text,
+                });
+                return;
+            } catch (err: any) {
+                if (err?.name === 'AbortError') return;
+            }
+        }
+
+        // Fallback: Copy to clipboard and open WhatsApp
+        if (typeof navigator !== 'undefined' && navigator.clipboard) {
+            navigator.clipboard.writeText(text);
+            toast({ title: 'Login details copied!', description: 'Paste into WhatsApp, SMS, or any messaging app.' });
+        }
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
     };
 
     useEffect(() => {
@@ -149,8 +163,8 @@ export default function ManageEmployeesPage() {
     };
 
     const handleSave = async () => {
-        if (!form.name.trim() || !form.pin.trim() || form.pin.length < 4) {
-            toast({ variant: 'destructive', title: 'Name required, PIN must be 4+ digits' });
+        if (!form.name.trim() || !form.phone.trim() || !form.pin.trim() || form.pin.length < 4) {
+            toast({ variant: 'destructive', title: 'Name, Staff Login ID (Phone or Email), and 4+ digit PIN are required' });
             return;
         }
         setSaving(true);
@@ -213,7 +227,7 @@ export default function ManageEmployeesPage() {
                 </Button>
             </div>
 
-            {/* Staff Login Link & Owner ID Card */}
+            {/* Staff Login Link Card */}
             <Card className="mb-6 bg-[#FAF8F3] dark:bg-[#1A1A1A] border-[#6B7A50]/30 shadow-sm">
                 <CardContent className="p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                     <div className="flex items-start gap-3">
@@ -222,24 +236,13 @@ export default function ManageEmployeesPage() {
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Your Shop Owner Login ID:</span>
+                                <span className="text-sm font-bold text-[#2F2F2F] dark:text-[#E0E0E0]">Staff Portal & Mobile Login</span>
                             </div>
-                            <div className="flex items-center gap-2 mt-1">
-                                <code className="font-mono text-sm font-bold bg-white dark:bg-black/40 px-2.5 py-1 rounded border border-[#CFCAC0] dark:border-[#444444] text-[#2F2F2F] dark:text-[#E0E0E0]">
-                                    {ownerEmail || 'Loading...'}
-                                </code>
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={copyOwnerEmail}
-                                    className="h-8 gap-1 text-xs border-[#6B7A50]/40 text-[#6B7A50] hover:bg-[#6B7A50]/10"
-                                >
-                                    {copiedEmail ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
-                                    {copiedEmail ? 'Copied' : 'Copy'}
-                                </Button>
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1.5">
-                                Staff members log in at <span className="font-mono font-bold text-[#6B7A50]">/employee-login</span> using this Shop Owner ID + their 4-digit PIN.
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Staff members log in directly using their assigned <span className="font-semibold text-foreground">Phone Number or Email</span> + their <span className="font-semibold text-foreground">4-digit PIN</span>.
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                                Staff login page: <span className="font-mono font-bold text-[#6B7A50]">/employee-login</span>
                             </p>
                         </div>
                     </div>
@@ -296,13 +299,13 @@ export default function ManageEmployeesPage() {
                                     </Button>
                                 </div>
 
-                                {/* WhatsApp Share Button */}
+                                {/* WhatsApp & Universal Share Button */}
                                 <Button
                                     size="sm"
                                     onClick={() => shareStaffCredentials(emp)}
                                     className="w-full bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs gap-1.5 h-8 shadow-sm"
                                 >
-                                    <Share2 className="w-3.5 h-3.5" /> Share Login on WhatsApp
+                                    <Share2 className="w-3.5 h-3.5" /> Share Credentials (WhatsApp, SMS, etc.)
                                 </Button>
 
                                 <div className="flex gap-2 pt-1 border-t border-border/40">
@@ -349,12 +352,13 @@ export default function ManageEmployeesPage() {
                             />
                         </div>
                         <div className="space-y-1">
-                            <Label>Phone Number</Label>
+                            <Label>Staff Login ID (Phone Number or Email) *</Label>
                             <Input
-                                placeholder="e.g. 03001234567"
+                                placeholder="e.g. 03001234567 or staff@gmail.com"
                                 value={form.phone}
                                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
                             />
+                            <p className="text-[11px] text-muted-foreground">Staff will enter this Phone Number or Email on their mobile to log in.</p>
                         </div>
                         <div className="space-y-1">
                             <Label>PIN (4–6 digits) *</Label>

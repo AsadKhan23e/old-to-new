@@ -118,6 +118,29 @@ class PersistenceEngine {
             localStorage.setItem(`offline_${key}_synced`, '1');
         }
     }
+
+    async purgeUnsyncedKeys() {
+        try {
+            if (Capacitor.isNativePlatform() && this.db) {
+                await this.db.run(`DELETE FROM local_store WHERE synced = 0`);
+            } else if (typeof window !== 'undefined') {
+                const keysToPurge: string[] = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const k = localStorage.key(i);
+                    if (k?.startsWith('offline_') && !k.endsWith('_synced')) {
+                        const synced = localStorage.getItem(`${k}_synced`);
+                        if (synced === '0') keysToPurge.push(k);
+                    }
+                }
+                keysToPurge.forEach(k => {
+                    localStorage.removeItem(k);
+                    localStorage.removeItem(`${k}_synced`);
+                });
+            }
+        } catch (e) {
+            console.error('Failed to purge unsynced keys:', e);
+        }
+    }
 }
 
 export const persistence = new PersistenceEngine();

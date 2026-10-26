@@ -181,6 +181,10 @@ export function canDo(permission: string): boolean {
 
 // ─── Employee CRUD ──────────────────────────────────────────────────────────
 
+export function normalizeStaffId(id: string): string {
+    return (id || '').toLowerCase().trim().replace(/[^a-z0-9@._-]/g, '');
+}
+
 export async function getEmployees(ownerEmail: string): Promise<Employee[]> {
     const cleanEmail = ownerEmail.toLowerCase().trim();
     const empCol = collection(db, 'users', cleanEmail, 'employees');
@@ -200,6 +204,28 @@ export async function addEmployee(
         createdAt: new Date().toISOString(),
     };
     const ref = await addDoc(empCol, emp);
+
+    // Also index in staffDirectory so the employee can log in using their own phone or email!
+    if (data.phone) {
+        const cleanLoginId = normalizeStaffId(data.phone);
+        if (cleanLoginId) {
+            try {
+                await setDoc(doc(db, 'staffDirectory', cleanLoginId), {
+                    ownerEmail: cleanEmail,
+                    employeeId: ref.id,
+                    name: data.name,
+                    role: data.role,
+                    pin: data.pin.trim(),
+                    isActive: data.isActive,
+                    loginId: cleanLoginId,
+                    updatedAt: new Date().toISOString()
+                });
+            } catch (e) {
+                console.warn('Could not write to staffDirectory index:', e);
+            }
+        }
+    }
+
     return ref.id;
 }
 
@@ -210,35 +236,125 @@ export async function updateEmployee(
 ): Promise<void> {
     const cleanEmail = ownerEmail.toLowerCase().trim();
     const empRef = doc(db, 'users', cleanEmail, 'employees', employeeId);
+
+    const prevSnap = await getDoc(empRef);
+    const prevData = prevSnap.exists() ? prevSnap.data() : null;
+
     await updateDoc(empRef, data as any);
+
+    // Update staffDirectory index
+    if (prevData?.phone) {
+        const oldId = normalizeStaffId(prevData.phone);
+        const newId = data.phone ? normalizeStaffId(data.phone) : oldId;
+        if (oldId && oldId !== newId) {
+            try { await deleteDoc(doc(db, 'staffDirectory', oldId)); } catch {}
+        }
+    }
+
+    const effectivePhone = data.phone !== undefined ? data.phone : prevData?.phone;
+    if (effectivePhone) {
+        const cleanLoginId = normalizeStaffId(effectivePhone);
+        if (cleanLoginId) {
+            try {
+                await setDoc(doc(db, 'staffDirectory', cleanLoginId), {
+                    ownerEmail: cleanEmail,
+                    employeeId: employeeId,
+                    name: data.name || prevData?.name || '',
+                    role: data.role || prevData?.role || 'cashier',
+                    pin: (data.pin || prevData?.pin || '').trim(),
+                    isActive: data.isActive !== undefined ? data.isActive : (prevData?.isActive ?? true),
+                    loginId: cleanLoginId,
+                    updatedAt: new Date().toISOString()
+                });
+            } catch (e) {
+                console.warn('Could not update staffDirectory index:', e);
+            }
+        }
+    }
 }
 
 export async function deleteEmployee(ownerEmail: string, employeeId: string): Promise<void> {
     const cleanEmail = ownerEmail.toLowerCase().trim();
     const empRef = doc(db, 'users', cleanEmail, 'employees', employeeId);
+
+    try {
+        const snap = await getDoc(empRef);
+        if (snap.exists()) {
+            const phone = snap.data()?.phone;
+            if (phone) {
+                const cleanLoginId = normalizeStaffId(phone);
+                if (cleanLoginId) {
+                    await deleteDoc(doc(db, 'staffDirectory', cleanLoginId));
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('Could not clean up staffDirectory entry on delete:', e);
+    }
+
     await deleteDoc(empRef);
 }
 
 // ─── Employee Login (PIN-based) ─────────────────────────────────────────────
-
+// Supports login by Staff's OWN Phone or Email, OR Shop Owner Email
 export async function loginAsEmployee(
-    ownerEmail: string,
+    loginIdOrOwnerEmail: string,
     pin: string
 ): Promise<EmployeeSession | null> {
-    const cleanEmail = ownerEmail.toLowerCase().trim();
-    const cleanPin = pin.trim();
-    const employees = await getEmployees(cleanEmail);
-    const match = employees.find((e) => String(e.pin).trim() === cleanPin && e.isActive);
-    if (!match) return null;
+    const cleanInput = (loginIdOrOwnerEmail || '').trim();
+    const cleanPin = (pin || '').trim();
+    const cleanId = normalizeStaffId(cleanInput);
 
-    const session: EmployeeSession = {
-        ownerEmail: cleanEmail,
-        employeeId: match.id,
-        employeeName: match.name,
-        role: match.role,
-    };
-    setEmployeeSession(session);
-    return session;
+    if (!cleanId || !cleanPin) return null;
+
+    // 1. Direct Staff Directory Lookup (Staff logs in with their OWN Phone or Email!)
+    try {
+        const dirRef = doc(db, 'staffDirectory', cleanId);
+        const dirSnap = await getDoc(dirRef);
+        if (dirSnap.exists()) {
+            const d = dirSnap.data();
+            if (!d.isActive) return null;
+            if (String(d.pin).trim() !== cleanPin) return null;
+
+            // Re-verify against owner's employee collection
+            const empRef = doc(db, 'users', d.ownerEmail, 'employees', d.employeeId);
+            const empSnap = await getDoc(empRef);
+            if (!empSnap.exists() || !empSnap.data()?.isActive) {
+                try { await deleteDoc(dirRef); } catch {}
+                return null;
+            }
+
+            const session: EmployeeSession = {
+                ownerEmail: d.ownerEmail,
+                employeeId: d.employeeId,
+                employeeName: d.name,
+                role: d.role,
+            };
+            setEmployeeSession(session);
+            return session;
+        }
+    } catch (e) {
+        console.warn('staffDirectory lookup error:', e);
+    }
+
+    // 2. Fallback: Owner Email Lookup
+    if (cleanInput.includes('@')) {
+        const cleanOwner = cleanInput.toLowerCase().trim();
+        const employees = await getEmployees(cleanOwner);
+        const match = employees.find((e) => String(e.pin).trim() === cleanPin && e.isActive);
+        if (match) {
+            const session: EmployeeSession = {
+                ownerEmail: cleanOwner,
+                employeeId: match.id,
+                employeeName: match.name,
+                role: match.role,
+            };
+            setEmployeeSession(session);
+            return session;
+        }
+    }
+
+    return null;
 }
 
 // ─── Real-Time Session Validation & Kill Switch ─────────────────────────────

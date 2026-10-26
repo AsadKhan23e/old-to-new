@@ -640,6 +640,25 @@ export async function syncAllPending() {
     return;
   }
 
+  // CRITICAL SECURITY CHECK: If running as staff, verify account is still active BEFORE uploading offline data
+  if (typeof window !== 'undefined') {
+    const empRaw = localStorage.getItem('msb_employee_session');
+    if (empRaw) {
+      try {
+        const { validateEmployeeSession } = await import('@/lib/employee-service');
+        const isValid = await validateEmployeeSession();
+        if (!isValid) {
+          console.warn("Staff session revoked by owner. Purging pending offline modifications!");
+          await persistence.purgeUnsyncedKeys();
+          updateSyncStatus('offline');
+          return;
+        }
+      } catch (err) {
+        console.warn("Could not validate staff session during sync:", err);
+      }
+    }
+  }
+
   isSyncing = true;
   updateSyncStatus('syncing');
   console.log(`SyncEngine: Found ${pendingKeys.length} pending records to sync...`);

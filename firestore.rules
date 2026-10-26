@@ -3,7 +3,17 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function isAdmin() {
-      return request.auth != null && request.auth.token.email == 'king.khan648k@gmail.com';
+      return request.auth != null && (
+        request.auth.token.email == 'king.khan648k@gmail.com' ||
+        request.auth.token.email == 'asadsolarbnu@gmail.com'
+      );
+    }
+
+    function isOwner(userEmail) {
+      return request.auth != null && (
+        request.auth.token.email == userEmail || 
+        request.auth.token.email.lower() == userEmail.lower()
+      );
     }
 
     // ── Users ────────────────────────────────────────────────────────
@@ -13,21 +23,41 @@ service cloud.firestore {
     }
 
     match /users/{userEmail} {
-      // Allow read for everyone (for shop verification and staff login)
+      // Allow read for shop verification and staff lookup
       allow read: if true;
-      allow write: if (request.auth != null && 
-        (request.auth.token.email == userEmail || 
-         request.auth.token.email.lower() == userEmail.lower())) || isAdmin() || request.auth == null;
+      // Only the authenticated shop owner or admin can modify the shop profile
+      allow write: if isOwner(userEmail) || isAdmin();
       
-      // Allow access to all subcollections (customers, transactions, employees, activityLog, etc.)
-      match /{allPaths=**} {
-        allow read, write: if true;
+      // Employees collection: ONLY the owner or admin can add, update, or DELETE staff
+      match /employees/{empId} {
+        allow read: if true;
+        allow write, delete: if isOwner(userEmail) || isAdmin();
       }
+
+      // Activity log: readable by owner and admin
+      match /activityLog/{logId} {
+        allow read: if isOwner(userEmail) || isAdmin();
+        allow write: if true;
+      }
+
+      // Subcollections (customers, transactions, items, reminders):
+      // CRITICAL: Deletions are strictly restricted to Shop Owner and Admin!
+      match /{allPaths=**} {
+        allow read: if true;
+        allow delete: if isOwner(userEmail) || isAdmin();
+        allow create, update: if true;
+      }
+    }
+
+    // ── Staff Directory (Enables Staff login by their own Phone/Email) ───
+    match /staffDirectory/{staffId} {
+      allow read: if true;
+      allow write, delete: if request.auth != null || isAdmin();
     }
 
     // ── appConfig ────────────────────────────────────────────────────
     match /appConfig/{docId} {
-      allow read: if request.auth != null;
+      allow read: if true;
       allow write: if isAdmin();
     }
 

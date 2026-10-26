@@ -103,12 +103,12 @@ export default function EmployeeLoginPage() {
                     <form onSubmit={handleLogin} className="space-y-5">
                         <div className="space-y-2">
                             <Label htmlFor="ownerEmail" className="text-xs font-bold uppercase tracking-wider text-gray-500">
-                                Shop Owner's Email / ID
+                                Staff Login ID (Phone Number or Email)
                             </Label>
                             <Input
                                 id="ownerEmail"
-                                type="email"
-                                placeholder="owner@example.com"
+                                type="text"
+                                placeholder="e.g. 03451234567 or staff@gmail.com"
                                 value={ownerEmail}
                                 onChange={(e) => setOwnerEmail(e.target.value)}
                                 required
