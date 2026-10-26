@@ -47,6 +47,8 @@ const BillPreview = ({ settings }: { settings: BillDesignSettings }) => {
 };
 
 
+import { isStaffMember } from '@/lib/employee-service';
+
 export default function BillDesignPage() {
     const router = useRouter();
     const { toast } = useToast();
@@ -62,6 +64,16 @@ export default function BillDesignPage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
+        if (isStaffMember()) {
+            toast({
+                variant: 'destructive',
+                title: 'Access Denied',
+                description: 'Staff members are not allowed to edit bill design.',
+            });
+            router.replace('/dashboard');
+            return;
+        }
+
         const activeUser = getActiveUser();
         if (activeUser) {
             const data = getUserData(activeUser.email);
@@ -70,7 +82,7 @@ export default function BillDesignPage() {
         } else {
             router.push('/login');
         }
-    }, [router]);
+    }, [router, toast]);
 
     const handleInputChange = (field: keyof BillDesignSettings, value: any) => {
         if (field === 'backgroundBanner' && value && value.startsWith('data:image')) {

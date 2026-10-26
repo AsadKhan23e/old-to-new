@@ -26,8 +26,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { BillRenderer } from '@/components/billing/BillRenderer';
 import { generateSingleBillPDF } from '@/lib/pdf-service';
 import { getBillDesignSettings, BillDesignSettings } from '@/lib/data-layer';
-import { pickContact } from '@/lib/contact-service';
-import { getEmployeeSession } from '@/lib/employee-service';
+import { getEmployeeSession, isStaffMember } from '@/lib/employee-service';
 
 type ViewMode = 'user' | 'customer';
 
@@ -74,6 +73,7 @@ export default function ItemsPage() {
 
   const [activeUser, setActiveUser] = useState<User | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('user');
+  const [isStaff, setIsStaff] = useState(false);
 
   const [items, setItems] = useState<Item[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -284,6 +284,7 @@ export default function ItemsPage() {
       router.push('/login');
     }
     setViewMode(getViewMode());
+    setIsStaff(isStaffMember());
     const today = new Date().toISOString().split('T')[0];
     setSaleDate(today);
     setPurchaseDate(today);
@@ -371,6 +372,10 @@ export default function ItemsPage() {
   };
 
   const handleConfirmCustomItem = async () => {
+    if (isStaffMember()) {
+      toast({ variant: 'destructive', title: 'Action Not Allowed', description: 'Staff members cannot add items.' });
+      return;
+    }
     if (!activeUser || customInventoryItems.length === 0) {
       toast({ variant: 'destructive', title: 'Please add at least one item.' });
       return;
@@ -487,6 +492,10 @@ export default function ItemsPage() {
 
 
   const handleConfirmPurchase = async () => {
+    if (isStaffMember()) {
+      toast({ variant: 'destructive', title: "Action Not Allowed", description: "Staff members cannot add purchases." });
+      return;
+    }
     if (!activeUser) return;
     window.dispatchEvent(new Event('show_interstitial_ad'));
     if (!purchaseSupplierId) {
@@ -576,6 +585,10 @@ export default function ItemsPage() {
   };
 
   const handleDeleteStockEntry = async (itemIdToDelete: string) => {
+    if (isStaffMember()) {
+      toast({ variant: 'destructive', title: "Action Not Allowed", description: "Staff members cannot delete stock entries." });
+      return;
+    }
     if (!activeUser) return;
 
     const data = getUserData(activeUser.email);
@@ -1049,6 +1062,10 @@ export default function ItemsPage() {
   };
 
   const handleSaveItemDetails = () => {
+    if (isStaffMember()) {
+      toast({ variant: 'destructive', title: "Action Not Allowed", description: "Staff members cannot edit items." });
+      return;
+    }
     if (!activeUser || !itemDetails) return;
 
     const newSellingPrice = parseFloat(itemDetails.sellingPrice);
@@ -1087,6 +1104,10 @@ export default function ItemsPage() {
   };
 
   const handleDeleteItem = async () => {
+    if (isStaffMember()) {
+      toast({ variant: 'destructive', title: "Action Not Allowed", description: "Staff members cannot delete items." });
+      return;
+    }
     if (!activeUser || !itemDetails) return;
     const nameToDelete = itemDetails.item.itemName.toLowerCase();
     const data = getUserData(activeUser.email);
@@ -1101,6 +1122,7 @@ export default function ItemsPage() {
   const isUserView = viewMode === 'user';
 
   const handleSellingPriceChange = (itemName: string, newPrice: string) => {
+    if (isStaffMember()) return;
     if (!activeUser) return;
     const price = parseFloat(newPrice);
     if (isNaN(price)) return;
@@ -1238,12 +1260,16 @@ export default function ItemsPage() {
           <p className="text-muted-foreground">{t('itemsDescription')}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button onClick={() => setShowAddItemModal(true)}>
-            <PlusCircle className="mr-2" /> {t('addNewItem')}
-          </Button>
-          <Button variant="outline" onClick={() => setShowAddCustomItemModal(true)}>
-            <Package className="mr-2 h-4 w-4" /> Add Without Supplier
-          </Button>
+          {!isStaff && (
+            <>
+              <Button onClick={() => setShowAddItemModal(true)}>
+                <PlusCircle className="mr-2" /> {t('addNewItem')}
+              </Button>
+              <Button variant="outline" onClick={() => setShowAddCustomItemModal(true)}>
+                <Package className="mr-2 h-4 w-4" /> Add Without Supplier
+              </Button>
+            </>
+          )}
           <Button onClick={handleSellClick} variant="default">
             <ShoppingCart className="mr-2 h-4 w-4" />{t('sell')}
           </Button>
@@ -1327,7 +1353,7 @@ export default function ItemsPage() {
                                 defaultValue={item.sellingPrice}
                                 onBlur={(e) => handleSellingPriceChange(item.itemName, e.target.value)}
                                 className="h-7 w-24 text-sm"
-                                disabled={item.quantity === 0}
+                                disabled={item.quantity === 0 || isStaff}
                               />
                             )}
                           </div>
@@ -1348,10 +1374,12 @@ export default function ItemsPage() {
                                 <Eye className="mr-2 h-4 w-4" />
                                 <span>View Supplier Stock</span>
                               </DropdownMenuItem>
-                              <DropdownMenuItem onSelect={() => handleItemDetailsClick(item)}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                <span>Edit Item</span>
-                              </DropdownMenuItem>
+                              {!isStaff && (
+                                <DropdownMenuItem onSelect={() => handleItemDetailsClick(item)}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  <span>Edit Item</span>
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         )}
@@ -1388,27 +1416,29 @@ export default function ItemsPage() {
                           {s.quantity} units @ {s.purchasePrice.toLocaleString()} each
                         </p>
                       </div>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This will permanently delete this stock entry. This action cannot be undone and will not affect past bills.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteStockEntry(s.id)} className="bg-destructive hover:bg-destructive/90">
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      {!isStaff && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete this stock entry. This action cannot be undone and will not affect past bills.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteStockEntry(s.id)} className="bg-destructive hover:bg-destructive/90">
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
                     </div>
                   ))}
                   <div className="flex justify-between items-center font-bold border-t pt-2 mt-2">

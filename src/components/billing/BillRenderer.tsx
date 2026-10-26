@@ -71,9 +71,9 @@ export const BillRenderer = ({ bill, settings, customer, runningBalance, onViewI
                             <p className="text-xs text-muted-foreground">Phone: {customer.phone}</p>
                         )}
                         {bill.createdByName && (
-                            <p className="text-[11px] text-[#6B7A50] font-medium">
-                                Created by Staff: {bill.createdByName} {bill.createdByRole ? `(${bill.createdByRole})` : ''}
-                            </p>
+                            <div className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-[#6B7A50] bg-[#6B7A50]/10 px-2 py-0.5 rounded border border-[#6B7A50]/20 w-fit">
+                                <span>🧑‍💼 Created by Staff: <strong>{bill.createdByName}</strong> {bill.createdByRole ? `(${bill.createdByRole})` : ''}</span>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -120,17 +120,30 @@ export const BillRenderer = ({ bill, settings, customer, runningBalance, onViewI
                 {(bill.amountPaid > 0 || (bill.additionalPayments && bill.additionalPayments.length > 0)) && (
                     <div className="mt-6 border-t pt-4">
                         <h3 className="font-bold text-black mb-2 text-[12px] uppercase">Payments</h3>
-                        <div className="space-y-1 text-sm text-black drop-shadow-sm">
+                        <div className="space-y-1.5 text-sm text-black drop-shadow-sm">
                             {bill.amountPaid > 0 && (
-                                <div className="flex justify-between">
-                                    <span>Initial Payment on {formatDateTime(bill.date)}</span>
+                                <div className="flex justify-between items-center py-0.5">
+                                    <span>
+                                        Initial Payment on {formatDateTime(bill.date)}
+                                        {bill.createdByName && (
+                                            <span className="text-[11px] font-semibold text-[#6B7A50] ml-1.5">
+                                                (Recv by: {bill.createdByName})
+                                            </span>
+                                        )}
+                                    </span>
                                     <span className="font-medium">{bill.amountPaid.toLocaleString()}</span>
                                 </div>
                             )}
                             {bill.additionalPayments?.map(p => (
-                                <div key={p.id} className="flex justify-between items-center">
+                                <div key={p.id} className="flex justify-between items-center py-0.5">
                                     <span>
-                                        Payment on {formatDateTime(p.date)}{p.notes ? ` (${p.notes})` : ''}
+                                        Payment on {formatDateTime(p.date)}
+                                        {p.createdByName && (
+                                            <span className="text-[11px] font-semibold text-[#6B7A50] ml-1.5">
+                                                (Recv by: {p.createdByName})
+                                            </span>
+                                        )}
+                                        {p.notes ? ` (${p.notes})` : ''}
                                     </span>
                                     <div className="flex items-center gap-2">
                                         {p.image && onViewImage && (

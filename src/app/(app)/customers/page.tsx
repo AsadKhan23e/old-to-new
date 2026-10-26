@@ -304,6 +304,10 @@ const EditCustomerModal = ({
   if (!customer) return null;
 
   const handleUpdate = () => {
+    if (isStaffMember()) {
+      toast({ variant: 'destructive', title: "Action Not Allowed", description: "Staff members cannot edit customers." });
+      return;
+    }
     const activeUser = getActiveUser();
     if (!activeUser) return;
     if (!name || !phone) {
@@ -2088,6 +2092,10 @@ export default function CustomersPage() {
 
   const handleEditClick = (e: React.MouseEvent, customer: Customer) => {
     e.stopPropagation();
+    if (isStaffMember()) {
+      toast({ variant: 'destructive', title: "Action Not Allowed", description: "Staff members cannot edit customers." });
+      return;
+    }
     setEditingCustomer(customer);
   };
 
@@ -2206,9 +2214,11 @@ export default function CustomersPage() {
                   </p>
                 </div>
                 <div className="flex items-center">
-                  <Button variant="ghost" size="icon" onClick={(e) => handleEditClick(e, customer)}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
+                  {!isStaffMember() && (
+                    <Button variant="ghost" size="icon" onClick={(e) => handleEditClick(e, customer)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  )}
                   {!isStaffMember() && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>

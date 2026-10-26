@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { getActiveUser, getUserData, saveUserData, User, Customer, Transaction } from '@/lib/data-layer';
-import { isStaffMember } from '@/lib/employee-service';
+import { isStaffMember, getEmployeeSession } from '@/lib/employee-service';
 import { useTranslation } from '@/hooks/use-translation';
 
 function NewTransactionForm() {
@@ -109,10 +109,13 @@ function NewTransactionForm() {
       data.transactions = (data.transactions || []).map(tx => tx.id === editingTx.id ? updatedTransaction : tx);
       toast({ title: t('txUpdateSuccess') });
     } else {
+      const staffSession = getEmployeeSession();
       const newTransaction: Transaction = {
         id: new Date().toISOString(),
         customerId,
         customerName: customer.name,
+        createdByName: staffSession ? staffSession.employeeName : 'Owner',
+        createdByRole: staffSession ? staffSession.role : 'owner',
         totalAmount: transactionAmount,
         amountPaid: isDebit ? transactionAmount : 0,
         remainingBalance: isDebit ? 0 : transactionAmount,

@@ -200,6 +200,12 @@ export const generateSingleBillPDF = async (
     }
     const billNumStr = `Bill #: ${transaction.billNumber || 'Ref'}${transaction.isEdited && !transaction.hideEditedBadge ? ' (Edited / تبدیل شدہ)' : ''}`;
     doc.text(billNumStr, margin, currentY);
+    if (transaction.createdByName) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.text(`Created by: ${transaction.createdByName} (${transaction.createdByRole || 'Staff'})`, 210 - margin, currentY, { align: 'right' });
+        doc.setFontSize(11);
+    }
     currentY += 12;
 
     // Items Table - build rows; if an item has notes, add a sub-row
@@ -284,7 +290,8 @@ export const generateSingleBillPDF = async (
 
     if (transaction.amountPaid > 0) {
         const initialDate = formatDateTime(transaction.date);
-        doc.text(`Initial Payment on ${initialDate}`, margin + 5, currentY);
+        const recvPart = transaction.createdByName ? ` (Recv by: ${transaction.createdByName})` : '';
+        doc.text(`Initial Payment on ${initialDate}${recvPart}`, margin + 5, currentY);
         doc.text(transaction.amountPaid.toLocaleString(), 210 - margin, currentY, { align: 'right' });
         currentY += 6;
     }
@@ -292,7 +299,8 @@ export const generateSingleBillPDF = async (
     transaction.additionalPayments?.forEach(p => {
         const pDate = formatDateTime(p.date);
         const notePart = p.notes ? ` (${p.notes})` : '';
-        doc.text(`Payment on ${pDate}${notePart}`, margin + 5, currentY);
+        const recvPart = p.createdByName ? ` (Recv by: ${p.createdByName})` : '';
+        doc.text(`Payment on ${pDate}${notePart}${recvPart}`, margin + 5, currentY);
         doc.text(p.amount.toLocaleString(), 210 - margin, currentY, { align: 'right' });
         currentY += 6;
     });
@@ -634,7 +642,8 @@ export const generateFullKhataPDF = async (
             doc.setFontSize(9.5);
             doc.setTextColor(107, 122, 80);
             doc.setFont("helvetica", "bold");
-            const billTitle = `Bill #${bill.billNumber || 'Ref'}${bill.isEdited && !bill.hideEditedBadge ? '  [Edited / تبدیل شدہ]' : ''}`;
+            const staffText = bill.createdByName ? `  [By: ${bill.createdByName}]` : '';
+            const billTitle = `Bill #${bill.billNumber || 'Ref'}${staffText}${bill.isEdited && !bill.hideEditedBadge ? '  [Edited / تبدیل شدہ]' : ''}`;
             doc.text(billTitle, margin + 3, currentY + 4.8);
 
             doc.setFontSize(8.5);
@@ -714,12 +723,14 @@ export const generateFullKhataPDF = async (
             doc.setFont("helvetica", "normal");
             doc.setTextColor(60);
             if (bill.amountPaid > 0) {
-                doc.text(`• Initial Payment (${formatDateTime(bill.date)}): Rs. ${bill.amountPaid.toLocaleString()}`, margin + 5, currentY);
+                const recvStr = bill.createdByName ? ` [Recv by: ${bill.createdByName}]` : '';
+                doc.text(`• Initial Payment (${formatDateTime(bill.date)})${recvStr}: Rs. ${bill.amountPaid.toLocaleString()}`, margin + 5, currentY);
                 currentY += 4;
             }
             bill.additionalPayments?.forEach(p => {
                 const noteStr = p.notes ? ` (${p.notes})` : '';
-                doc.text(`• Payment (${formatDateTime(p.date)})${noteStr}: Rs. ${p.amount.toLocaleString()}`, margin + 5, currentY);
+                const recvStr = p.createdByName ? ` [Recv by: ${p.createdByName}]` : '';
+                doc.text(`• Payment (${formatDateTime(p.date)})${noteStr}${recvStr}: Rs. ${p.amount.toLocaleString()}`, margin + 5, currentY);
                 currentY += 4;
             });
 

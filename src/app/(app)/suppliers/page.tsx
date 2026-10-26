@@ -23,7 +23,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { BillRenderer } from '@/components/billing/BillRenderer';
 import { generateSingleBillPDF, generateFullKhataPDF } from '@/lib/pdf-service';
-import { isStaffMember } from '@/lib/employee-service';
+import { isStaffMember, getEmployeeSession } from '@/lib/employee-service';
 
 
 type Supplier = Customer & {
@@ -1096,12 +1096,14 @@ const SupplierDetailsModal = ({
 
     const targetPurchaseIndex = data.transactions.findIndex(tx => tx.id === targetPurchase.id);
 
+    const empSession = getEmployeeSession();
     const newPayment: Payment = {
       id: new Date().toISOString(),
       amount,
       date: new Date(date + 'T' + new Date().toTimeString().split(' ')[0]).toISOString(),
       notes: notes || null,
-      image: image || null
+      image: image || null,
+      createdByName: empSession ? empSession.employeeName : 'Owner',
     };
 
     if (targetPurchaseIndex > -1) {
@@ -1349,7 +1351,9 @@ ${billDesignSettings.footer}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                            <DropdownMenuItem onSelect={() => setEditingPurchase(tx)}><Edit className="mr-2 h-4 w-4" /> Edit Purchase</DropdownMenuItem>
+                            {!isStaffMember() && (
+                              <DropdownMenuItem onSelect={() => setEditingPurchase(tx)}><Edit className="mr-2 h-4 w-4" /> Edit Purchase</DropdownMenuItem>
+                            )}
                             {tx.isEdited && (
                               <DropdownMenuItem onSelect={() => handleToggleEditedBadge(tx.id)}>
                                 {tx.hideEditedBadge ? (
@@ -1365,13 +1369,15 @@ ${billDesignSettings.footer}
                             )}
                             <DropdownMenuItem onSelect={() => handleShare([tx])}><Share2 className="mr-2 h-4 w-4" /> Share (Text)</DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => handleSharePdf([tx])}><FileDown className="mr-2 h-4 w-4" /> Download Bill (PDF)</DropdownMenuItem>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild><DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:bg-destructive/10 focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete Purchase</DropdownMenuItem></AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this purchase record. This action does not change item stock and cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-                                <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeletePurchase(tx.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                            {!isStaffMember() && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild><DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:bg-destructive/10 focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete Purchase</DropdownMenuItem></AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this purchase record. This action does not change item stock and cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+                                  <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeletePurchase(tx.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -1391,28 +1397,30 @@ ${billDesignSettings.footer}
           </div>
           {selectedPurchases.length > 0 && (
             <div className="border-t pt-4 grid grid-cols-3 gap-2">
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" className="w-full">
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete ({selectedPurchases.length})
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will permanently delete the {selectedPurchases.length} selected purchases. This action does not change item stock and cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive hover:bg-destructive/90">
-                      Delete Purchases
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              {!isStaffMember() && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" className="w-full">
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete ({selectedPurchases.length})
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete the {selectedPurchases.length} selected purchases. This action does not change item stock and cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive hover:bg-destructive/90">
+                        Delete Purchases
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
               <Button variant="secondary" className="w-full" onClick={handleBulkShare}>
                 <Share2 className="mr-2 h-4 w-4" /> Share ({selectedPurchases.length})
               </Button>
@@ -1599,6 +1607,10 @@ export default function SuppliersPage() {
 
   const handleEditSupplier = (e: React.MouseEvent, supplier: Customer) => {
     e.stopPropagation();
+    if (isStaffMember()) {
+      toast({ variant: 'destructive', title: "Action Not Allowed", description: "Staff members cannot edit suppliers." });
+      return;
+    }
     setEditingSupplier(supplier);
     setShowAddEditModal(true);
   };
@@ -1707,7 +1719,9 @@ export default function SuppliersPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" onClick={(e) => handleEditSupplier(e, supplier)}><Edit className="h-4 w-4" /></Button>
+                      {!isStaffMember() && (
+                        <Button variant="ghost" size="icon" onClick={(e) => handleEditSupplier(e, supplier)}><Edit className="h-4 w-4" /></Button>
+                      )}
                       {!isStaffMember() && (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>

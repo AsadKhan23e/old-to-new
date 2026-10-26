@@ -19,7 +19,7 @@ import {
   updateUserName,
   User,
 } from '@/lib/data-layer';
-import { clearEmployeeSession } from '@/lib/employee-service';
+import { clearEmployeeSession, isStaffMember } from '@/lib/employee-service';
 import { useTranslation } from '@/hooks/use-translation';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
@@ -48,11 +48,13 @@ export default function SettingsPage() {
   const [userName, setUserName] = useState('');
   const [user, setUser] = useState<User | null>(null);
   const [isUpdatingName, setIsUpdatingName] = useState(false);
+  const [isStaff, setIsStaff] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     setMounted(true);
     setVm(getViewMode());
+    setIsStaff(isStaffMember());
 
     const checkPremium = () => {
       setIsPremium(getIsPremium());
@@ -241,32 +243,34 @@ export default function SettingsPage() {
             )}
           </div>
 
-          <div className="space-y-4">
-            <Button
-              onClick={() => router.push('/settings/bill-design')}
-              className="w-full justify-start bg-white dark:bg-[#252525] border-[#CFCAC0] dark:border-[#444444] text-foreground dark:text-[#E0E0E0] hover:bg-[#E5E2DA] dark:hover:bg-[#333333]"
-              variant="outline"
-            >
-              <FileText className="mr-2 h-4 w-4" />
-              Bill Design Settings
-            </Button>
-            <Button
-              onClick={() => router.push('/employees')}
-              className="w-full justify-start bg-white dark:bg-[#252525] border-[#CFCAC0] dark:border-[#444444] text-foreground dark:text-[#E0E0E0] hover:bg-[#E5E2DA] dark:hover:bg-[#333333]"
-              variant="outline"
-            >
-              <Users className="mr-2 h-4 w-4 text-[#6B7A50]" />
-              Manage Staff / Nokar
-            </Button>
-            <Button
-              onClick={() => router.push('/activity-log')}
-              className="w-full justify-start bg-white dark:bg-[#252525] border-[#CFCAC0] dark:border-[#444444] text-foreground dark:text-[#E0E0E0] hover:bg-[#E5E2DA] dark:hover:bg-[#333333]"
-              variant="outline"
-            >
-              <Activity className="mr-2 h-4 w-4 text-[#8C6A4F]" />
-              Activity Log
-            </Button>
-          </div>
+          {!isStaff && (
+            <div className="space-y-4">
+              <Button
+                onClick={() => router.push('/settings/bill-design')}
+                className="w-full justify-start bg-white dark:bg-[#252525] border-[#CFCAC0] dark:border-[#444444] text-foreground dark:text-[#E0E0E0] hover:bg-[#E5E2DA] dark:hover:bg-[#333333]"
+                variant="outline"
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                Bill Design Settings
+              </Button>
+              <Button
+                onClick={() => router.push('/employees')}
+                className="w-full justify-start bg-white dark:bg-[#252525] border-[#CFCAC0] dark:border-[#444444] text-foreground dark:text-[#E0E0E0] hover:bg-[#E5E2DA] dark:hover:bg-[#333333]"
+                variant="outline"
+              >
+                <Users className="mr-2 h-4 w-4 text-[#6B7A50]" />
+                Manage Staff / Nokar
+              </Button>
+              <Button
+                onClick={() => router.push('/activity-log')}
+                className="w-full justify-start bg-white dark:bg-[#252525] border-[#CFCAC0] dark:border-[#444444] text-foreground dark:text-[#E0E0E0] hover:bg-[#E5E2DA] dark:hover:bg-[#333333]"
+                variant="outline"
+              >
+                <Activity className="mr-2 h-4 w-4 text-[#8C6A4F]" />
+                Activity Log
+              </Button>
+            </div>
+          )}
 
           <div className="space-y-4">
             <div className="p-4 border rounded-lg space-y-2 border-[#CFCAC0] dark:border-[#444444]">
